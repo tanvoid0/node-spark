@@ -15,3 +15,6 @@ local.properties
 # dependencies and generated coverage report are not.
 demo/node_modules/
 demo/coverage/
+
+# IDE Features Trainer scratch, created when the demo project is opened
+demo/ide-trainer/

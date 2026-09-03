@@ -22,44 +22,82 @@ import java.awt.event.MouseEvent
 
 class NodeTestLineMarkerProvider : LineMarkerProvider {
 
-    override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? {
-        if (element.firstChild != null) return null
+    // Markers are produced per line, not per leaf — see collectSlowLineMarkers.
+    override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? = null
 
-        val file = element.containingFile?.virtualFile ?: return null
-        if (!NodeTestDetector.isTestFile(file)) return null
+    /**
+     * IntelliJ IDEA Community has no JavaScript plugin, so a .js file there is plain text: its PSI
+     * is a single leaf spanning the whole file rather than one leaf per token. Anchoring a marker
+     * to the line its leaf happens to start on therefore finds at most one test per file — and in
+     * practice none, because that one line is the top of the file.
+     *
+     * So the scan is by line instead of by leaf: every line whose start offset falls inside a
+     * given leaf is checked against the test pattern. A line start belongs to exactly one leaf, so
+     * no line is visited twice, and the same code covers both PSI shapes — a token-per-leaf file
+     * from a JavaScript plugin and a whole-file leaf without one.
+     */
+    override fun collectSlowLineMarkers(
+        elements: List<PsiElement>,
+        result: MutableCollection<in LineMarkerInfo<*>>,
+    ) {
+        val first = elements.firstOrNull() ?: return
+        val psiFile = first.containingFile ?: return
+        val file = psiFile.virtualFile ?: return
+        if (!NodeTestDetector.isTestFile(file)) return
 
-        val document = PsiDocumentManager.getInstance(element.project)
-            .getDocument(element.containingFile) ?: return null
+        val document = PsiDocumentManager.getInstance(first.project).getDocument(psiFile) ?: return
 
-        val offset = element.textOffset
-        val lineNumber = document.getLineNumber(offset)
-        val lineStart = document.getLineStartOffset(lineNumber)
+        for (element in elements) {
+            if (element.firstChild != null) continue
+            val range = element.textRange ?: continue
 
-        val textBefore = document.getText(TextRange(lineStart, offset))
-        if (textBefore.isNotBlank()) return null
+            val firstLine = document.getLineNumber(range.startOffset)
+            val lastLine = document.getLineNumber(range.endOffset.coerceAtMost(document.textLength))
 
-        val lineEnd = document.getLineEndOffset(lineNumber)
-        val lineText = document.getText(TextRange(lineStart, lineEnd))
+            for (line in firstLine..lastLine) {
+                val lineStart = document.getLineStartOffset(line)
+                if (lineStart < range.startOffset || lineStart >= range.endOffset) continue
 
-        val matcher = NodeTestDetector.TEST_FUNCTION_PATTERN.matcher(lineText)
-        if (!matcher.find()) return null
+                val lineText = document.getText(TextRange(lineStart, document.getLineEndOffset(line)))
+                val matcher = NodeTestDetector.TEST_FUNCTION_PATTERN.matcher(lineText)
+                if (!matcher.find()) continue
+                val testName = matcher.group(5) ?: continue
 
-        val testName = matcher.group(5) ?: return null
+                result.add(marker(element, lineStart, lineText, file.path, testName))
+            }
+        }
+    }
 
+    private fun marker(
+        element: PsiElement,
+        lineStart: Int,
+        lineText: String,
+        filePath: String,
+        testName: String,
+    ): LineMarkerInfo<PsiElement> {
         // Show the last known result for this test, falling back to the plain run arrow
-        val icon = when (TestResultStore.getInstance(element.project).get(file.path, testName)) {
+        val icon = when (TestResultStore.getInstance(element.project).get(filePath, testName)) {
             TestStatus.PASSED -> AllIcons.RunConfigurations.TestState.Green2
             TestStatus.FAILED -> AllIcons.RunConfigurations.TestState.Red2
             TestStatus.SKIPPED -> AllIcons.RunConfigurations.TestState.Yellow2
             null -> NodeSparkIcons.RunTest
         }
 
+        // The icon sits on the line's first non-blank character, clamped to the leaf that owns the
+        // line: a marker range outside its own element is not a range the daemon will accept.
+        val indent = lineText.takeWhile { it.isWhitespace() }.length
+        val own = element.textRange
+        val anchor = TextRange(
+            (lineStart + indent).coerceIn(own.startOffset, own.endOffset),
+            (lineStart + lineText.length).coerceIn(own.startOffset, own.endOffset),
+        )
+
         return LineMarkerInfo(
             element,
-            element.textRange,
+            anchor,
             icon,
             { "Left-click: Run  |  Right-click: Debug — $testName" },
-            { e, el -> onGutterClick(e, el, file.path, testName) },
+            { e, el -> onGutterClick(e, el, filePath, testName) },
             GutterIconRenderer.Alignment.LEFT,
             { "Run / Debug: $testName" }
         )

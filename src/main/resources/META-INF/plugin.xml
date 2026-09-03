@@ -1,7 +1,7 @@
-<idea-plugin>
+<idea-plugin url="https://github.com/tanvoid0/node-spark">
     <id>com.nodespark.node-spark</id>
     <name>NodeSpark</name>
-    <vendor email="tanvoid0@gmail.com">NodeSpark</vendor>
+    <vendor email="tanvoid0@gmail.com" url="https://tanvoid0.com">NodeSpark</vendor>
 
     <description><![CDATA[
         Node.js support for IntelliJ IDEA Community.<br/>

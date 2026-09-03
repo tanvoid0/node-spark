@@ -58,6 +58,11 @@ A release builds both, after bumping `pluginVersion` in `gradle.properties`.
 Two other things moved in 262 and are handled per variant: JSON PSI became a separate bundled
 plugin, and `isOpenProjectSettingsAfter` left the import-builder hierarchy.
 
+## Known issues
+
+[docs/known-issues.md](docs/known-issues.md) tracks what is broken or unverified, and what the next
+step on each is. The gutter icons in particular are not confirmed working on a real Community IDE.
+
 ## Screenshots
 
 `docs/screenshots/` holds the images used by the README. See

@@ -31,6 +31,10 @@ class NodeTestLineMarkerProvider : LineMarkerProvider {
      * to the line its leaf happens to start on therefore finds at most one test per file — and in
      * practice none, because that one line is the top of the file.
      *
+     * ponytail: line-based scan fixes the plain-text PSI case, but the icons are still missing in
+     * an IDE where TextMate owns .js (see docs/known-issues.md) - marking the editor up directly
+     * is the upgrade path if a PSI pass turns out never to run there.
+     *
      * So the scan is by line instead of by leaf: every line whose start offset falls inside a
      * given leaf is checked against the test pattern. A line start belongs to exactly one leaf, so
      * no line is visited twice, and the same code covers both PSI shapes — a token-per-leaf file

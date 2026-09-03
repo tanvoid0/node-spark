@@ -1,0 +1,17 @@
+# Gradle
+.gradle/
+build/
+.kotlin/
+
+# IntelliJ Platform Gradle plugin's local IDE cache
+.intellijPlatform/
+
+# IDE
+.idea/
+*.iml
+local.properties
+
+# The demo project is a run/debug fixture: its sources are tracked, its installed
+# dependencies and generated coverage report are not.
+demo/node_modules/
+demo/coverage/

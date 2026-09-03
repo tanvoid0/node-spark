@@ -1,0 +1,14 @@
+{
+  "name": "node-spark-demo",
+  "version": "1.0.0",
+  "description": "Demo project for testing NodeSpark IntelliJ plugin",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:vitest": "vitest run"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "vitest": "^1.6.0"
+  }
+}

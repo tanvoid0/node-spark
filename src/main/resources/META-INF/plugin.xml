@@ -1,0 +1,163 @@
+<idea-plugin>
+    <id>com.nodespark.node-spark</id>
+    <name>NodeSpark</name>
+    <vendor email="tanvoid0@gmail.com">NodeSpark</vendor>
+
+    <description><![CDATA[
+        Node.js support for IntelliJ IDEA Community.<br/>
+        Runs Jest, Vitest, Mocha and <code>node --test</code> with a real pass/fail test tree,
+        gutter run icons, package.json script running, a CDP debugger, ESLint/Prettier and
+        lcov coverage.<br/><br/>
+        Everything runs against the tools the project already installs in its own
+        <code>node_modules</code> &mdash; nothing is downloaded and nothing is installed into your
+        project. Tools are only executed in projects you have marked as trusted.
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <b>0.2.0</b>
+        <ul>
+          <li>ESLint, Prettier and the <code>npm install</code> banner now respect IDE project trust:
+              nothing from a project's <code>node_modules</code> is executed until the project is trusted.</li>
+          <li>Executables are resolved against PATH rather than the working directory, so a binary
+              committed to a repository can no longer shadow the real <code>node</code> or <code>npm</code>.</li>
+          <li>Jest, Vitest, Mocha and <code>node --test</code> test trees, gutter run icons,
+              package.json script running, CDP debugger and lcov coverage.</li>
+        </ul>
+    ]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+
+    <!-- Optional: the Java plugin owns the projectImportProvider extension point.
+         Without it the plugin still loads, minus the package.json import path. -->
+    <depends optional="true" config-file="node-spark-java.xml">com.intellij.modules.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+
+        <!-- Run configuration type -->
+        <configurationType
+            implementation="com.nodespark.run.NodeTestRunConfigurationType"/>
+
+        <!-- Program runner — required for ExecutionUtil.runConfiguration to dispatch -->
+        <programRunner implementation="com.nodespark.run.NodeTestProgramRunner"/>
+
+        <!-- Debug runner: launches node with inspect-brk flag, connects CDP debugger -->
+        <programRunner implementation="com.nodespark.debug.NodeTestDebugProgramRunner"/>
+
+        <!-- Line breakpoint type for JS files — enables the gutter and feeds NodeDebugProcess's handler -->
+        <xdebugger.breakpointType implementation="com.nodespark.debug.NodeLineBreakpointType"/>
+
+        <!-- Right-click → Run producer -->
+        <runConfigurationProducer
+            implementation="com.nodespark.run.NodeTestRunConfigurationProducer"/>
+
+        <!-- Gutter play icons -->
+        <codeInsight.lineMarkerProvider
+            language="any"
+            implementationClass="com.nodespark.gutter.NodeTestLineMarkerProvider"/>
+
+        <!-- Settings page -->
+        <applicationConfigurable
+            parentId="tools"
+            instance="com.nodespark.settings.NodeSparkConfigurable"
+            id="com.nodespark.settings"
+            displayName="NodeSpark"/>
+
+        <applicationService
+            serviceImplementation="com.nodespark.settings.NodeSparkSettings"/>
+
+        <!-- Node.js SDK type — appears in Project Structure → SDKs -->
+        <sdkType implementation="com.nodespark.sdk.NodeJsSdkType"/>
+
+        <!-- Node.js module type — appears in Project Structure → Modules → Add → New Module,
+             and lets a module take a Node.js SDK in its Dependencies tab -->
+        <moduleType id="NODE_JS_MODULE"
+                    implementationClass="com.nodespark.module.NodeModuleType"
+                    classpathProvider="false"/>
+
+        <!-- Per-project SDK selection under Settings → NodeSpark → Node.js SDK -->
+        <projectConfigurable
+            parentId="com.nodespark.settings"
+            instance="com.nodespark.sdk.NodeProjectSdkConfigurable"
+            id="com.nodespark.sdk"
+            displayName="Node.js SDK"/>
+
+        <!-- Per-project service storing the chosen SDK name -->
+        <projectService
+            serviceImplementation="com.nodespark.sdk.NodeProjectSdkService"/>
+
+        <!-- Plain `node script.js` run/debug -->
+        <configurationType implementation="com.nodespark.noderun.NodeAppRunConfigurationType"/>
+        <programRunner implementation="com.nodespark.noderun.NodeAppProgramRunner"/>
+        <programRunner implementation="com.nodespark.noderun.NodeAppDebugProgramRunner"/>
+        <runConfigurationProducer implementation="com.nodespark.noderun.NodeAppRunConfigurationProducer"/>
+
+        <!-- Attach the debugger to an already running node inspector -->
+        <configurationType implementation="com.nodespark.attach.NodeAttachConfigurationType"/>
+        <programRunner implementation="com.nodespark.debug.NodeAttachProgramRunner"/>
+
+        <!-- package.json scripts: gutter icon + run configuration -->
+        <configurationType implementation="com.nodespark.npm.NpmScriptRunConfigurationType"/>
+        <programRunner implementation="com.nodespark.npm.NpmScriptProgramRunner"/>
+        <runConfigurationProducer implementation="com.nodespark.npm.NpmScriptRunConfigurationProducer"/>
+        <codeInsight.lineMarkerProvider
+            language="any"
+            implementationClass="com.nodespark.npm.NpmScriptLineMarkerProvider"/>
+
+        <!-- ESLint inspection -->
+        <externalAnnotator
+            language="any"
+            implementationClass="com.nodespark.lint.EslintExternalAnnotator"/>
+        <applicationConfigurable
+            parentId="com.nodespark.settings"
+            instance="com.nodespark.lint.LintConfigurable"
+            id="com.nodespark.lint"
+            displayName="ESLint / Prettier"/>
+
+        <!-- "npm install" banner on a project with no node_modules -->
+        <editorNotificationProvider
+            implementation="com.nodespark.notify.NodeModulesNotificationProvider"/>
+
+        <!-- describe/it outline in the Structure tool window -->
+        <lang.psiStructureViewFactory
+            language="any"
+            implementationClass="com.nodespark.structure.NodeTestStructureViewFactory"/>
+
+    </extensions>
+
+    <applicationListeners>
+        <listener class="com.nodespark.lint.PrettierOnSaveListener"
+                  topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
+    </applicationListeners>
+
+    <actions>
+        <action id="NodeSpark.RunTestFile"
+                class="com.nodespark.actions.RunTestFileAction"
+                text="Run Node Tests"
+                description="Run all tests in this file with Node.js test runner"
+                icon="/icons/node-spark-run.svg">
+            <add-to-group group-id="EditorPopupMenu.Run" anchor="first"/>
+        </action>
+
+        <action id="NodeSpark.Prettier"
+                class="com.nodespark.lint.PrettierFormatAction"
+                text="Reformat with Prettier"
+                description="Format the current file with the project's Prettier">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="control alt shift P"/>
+        </action>
+
+        <group id="NodeSpark.Coverage" text="Node Coverage" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="NodeSpark.RunTestsWithCoverage"
+                    class="com.nodespark.coverage.RunTestsWithCoverageAction"
+                    text="Run Tests with Coverage"/>
+            <action id="NodeSpark.ShowCoverage"
+                    class="com.nodespark.coverage.ShowNodeCoverageAction"
+                    text="Show Coverage from lcov.info"/>
+            <action id="NodeSpark.HideCoverage"
+                    class="com.nodespark.coverage.HideNodeCoverageAction"
+                    text="Hide Coverage"/>
+        </group>
+    </actions>
+</idea-plugin>

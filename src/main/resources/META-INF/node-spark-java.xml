@@ -1,0 +1,11 @@
+<!--
+  Loaded only when the Java plugin is present — it owns the projectImportProvider
+  extension point (com.intellij.projectImport lives in java-impl.jar).
+-->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Modules → Add → Import Module → "Import module from external model" → Node.js -->
+        <projectImportProvider
+            implementation="com.nodespark.importer.NodeProjectImportProvider"/>
+    </extensions>
+</idea-plugin>

@@ -16,6 +16,9 @@ class NodeSparkConfigurable : Configurable {
     private val envVarsField = JBTextField()
     private val autoDetectBox = JBCheckBox("Auto-detect test runner (Jest / Vitest / Mocha)")
     private val runnerCombo = ComboBox(arrayOf("auto", "jest", "vitest", "mocha"))
+    private val lspBox = JBCheckBox(
+        "Code completion and imports via typescript-language-server (needs the LSP4IJ plugin)",
+    )
 
     private var panel: JPanel? = null
 
@@ -28,6 +31,10 @@ class NodeSparkConfigurable : Configurable {
             .addLabeledComponent(JBLabel("Default env vars (KEY=VAL,...):"), envVarsField)
             .addComponent(autoDetectBox)
             .addLabeledComponent(JBLabel("Runner override:"), runnerCombo)
+            .addComponent(lspBox)
+            .addComponentToRightColumn(
+                JBLabel("Runs the project's own node_modules/typescript-language-server."),
+            )
             .addComponentFillVertically(JPanel(), 0)
             .panel
         return panel!!
@@ -39,7 +46,8 @@ class NodeSparkConfigurable : Configurable {
                npmPathField.text != s.npmPath ||
                envVarsField.text != s.defaultEnvVars ||
                autoDetectBox.isSelected != s.autoDetectRunner ||
-               runnerCombo.selectedItem != (s.runnerOverride.ifEmpty { "auto" })
+               runnerCombo.selectedItem != (s.runnerOverride.ifEmpty { "auto" }) ||
+               lspBox.isSelected != s.lspEnabled
     }
 
     override fun apply() {
@@ -51,6 +59,7 @@ class NodeSparkConfigurable : Configurable {
         s.runnerOverride = runnerCombo.selectedItem.toString().let {
             if (it == "auto") "" else it
         }
+        s.lspEnabled = lspBox.isSelected
     }
 
     override fun reset() {
@@ -60,5 +69,6 @@ class NodeSparkConfigurable : Configurable {
         envVarsField.text = s.defaultEnvVars
         autoDetectBox.isSelected = s.autoDetectRunner
         runnerCombo.selectedItem = s.runnerOverride.ifEmpty { "auto" }
+        lspBox.isSelected = s.lspEnabled
     }
 }

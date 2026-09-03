@@ -1,21 +1,13 @@
 package com.nodespark.notify
 
-import com.intellij.execution.ExecutionException
-import com.intellij.execution.RunContentExecutor
-import com.intellij.execution.process.KillableColoredProcessHandler
-import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.ide.impl.isTrusted
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.EditorNotificationPanel
 import com.intellij.ui.EditorNotificationProvider
 import com.intellij.ui.EditorNotifications
-import com.nodespark.util.NodeCommandLine
 import com.nodespark.util.NodePackageManager
 import com.nodespark.util.NodeTestDetector
 import java.io.File
@@ -81,32 +73,7 @@ class NodeModulesNotificationProvider : EditorNotificationProvider, DumbAware {
         }
     }
 
-    /** EDT — called from the hyperlink handler, which is what RunContentExecutor.run() requires. */
-    // ponytail: the handler ctor spawns the process on EDT (a few hundred ms for a .cmd shim on
-    // Windows); move the spawn to a pooled thread and invokeLater the executor if it ever feels laggy.
-    private fun install(project: Project, root: String, pm: NodePackageManager) {
-        val cmd = NodeCommandLine.base(project, root).apply {
-            // Absolute, PATH-resolved: the working directory is the project root, and Windows
-            // CreateProcess would otherwise prefer an npm.cmd committed to the repository.
-            exePath = NodeCommandLine.onPath(pm.binary())
-            addParameters(pm.installArgs())
-        }
-        val handler = try {
-            KillableColoredProcessHandler(cmd)
-        } catch (e: ExecutionException) {
-            Messages.showErrorDialog(project, e.message ?: "Failed to start ${pm.binName}", "NodeSpark")
-            return
-        }
-        ProcessTerminatedListener.attach(handler, project)
-        RunContentExecutor(project, handler)
-            .withTitle("${pm.binName} install")
-            .withActivateToolWindow(true)
-            .withAfterCompletion { // process-notifier thread
-                VfsUtil.markDirtyAndRefresh(true, true, true, File(root))
-                ApplicationManager.getApplication().invokeLater {
-                    EditorNotifications.getInstance(project).updateAllNotifications()
-                }
-            }
-            .run() // starts the process itself — do NOT call handler.startNotify()
-    }
+    /** EDT — called from the hyperlink handler. */
+    private fun install(project: Project, root: String, pm: NodePackageManager) =
+        PackageInstall.run(project, root, pm, pm.installArgs(), "${pm.binName} install")
 }

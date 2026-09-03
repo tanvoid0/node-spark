@@ -13,7 +13,12 @@ class LintSettings : PersistentStateComponent<LintSettings.State> {
     data class State(
         var eslintEnabled: Boolean = true,
         var prettierOnSave: Boolean = false,
+        // Reformat Code and the format-issue highlight both stay dormant until the project has its
+        // own prettier, so defaulting them on costs nothing in a project that does not use it.
+        var prettierFormatter: Boolean = true,
+        var prettierIssues: Boolean = true,
         var eslintTimeoutMs: Int = 5000,
+        var prettierTimeoutMs: Int = 5000,
     )
 
     private var state = State()
@@ -32,9 +37,21 @@ class LintSettings : PersistentStateComponent<LintSettings.State> {
         get() = state.prettierOnSave
         set(v) { state.prettierOnSave = v }
 
+    var prettierFormatter: Boolean
+        get() = state.prettierFormatter
+        set(v) { state.prettierFormatter = v }
+
+    var prettierIssues: Boolean
+        get() = state.prettierIssues
+        set(v) { state.prettierIssues = v }
+
     var eslintTimeoutMs: Int
         get() = state.eslintTimeoutMs
         set(v) { state.eslintTimeoutMs = v }
+
+    var prettierTimeoutMs: Int
+        get() = state.prettierTimeoutMs
+        set(v) { state.prettierTimeoutMs = v }
 
     companion object {
         val instance: LintSettings

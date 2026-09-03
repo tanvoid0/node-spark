@@ -16,6 +16,11 @@
     <change-notes><![CDATA[
         <b>0.2.0</b>
         <ul>
+          <li>Reformat Code (Ctrl+Alt+L) now runs the project's own Prettier on
+              <code>.js/.jsx/.ts/.tsx</code>, and code that differs from Prettier's output is
+              highlighted with a "Reformat with Prettier" fix. Both are advisory, both switch off
+              under <b>Settings &rarr; NodeSpark &rarr; ESLint / Prettier</b>, and neither does
+              anything in a project that has no Prettier of its own.</li>
           <li>ESLint, Prettier and the <code>npm install</code> banner now respect IDE project trust:
               nothing from a project's <code>node_modules</code> is executed until the project is trusted.</li>
           <li>Executables are resolved against PATH rather than the working directory, so a binary
@@ -31,6 +36,10 @@
     <!-- Optional: the Java plugin owns the projectImportProvider extension point.
          Without it the plugin still loads, minus the package.json import path. -->
     <depends optional="true" config-file="node-spark-java.xml">com.intellij.modules.java</depends>
+
+    <!-- Optional: LSP4IJ is the LSP client Community does not ship. Without it the plugin still
+         loads, minus completion / auto-import / go-to-definition. -->
+    <depends optional="true" config-file="node-spark-lsp.xml">com.redhat.devtools.lsp4ij</depends>
 
     <extensions defaultExtensionNs="com.intellij">
 
@@ -104,6 +113,17 @@
             language="any"
             implementationClass="com.nodespark.npm.NpmScriptLineMarkerProvider"/>
 
+        <!-- Prettier as the Reformat Code (Ctrl+Alt+L) implementation for JS/TS -->
+        <formattingService implementation="com.nodespark.lint.PrettierFormattingService"/>
+
+        <!-- Weak warnings on code prettier would rewrite, with a reformat fix -->
+        <externalAnnotator
+            language="any"
+            implementationClass="com.nodespark.lint.PrettierFormatAnnotator"/>
+
+        <!-- Balloons from the formatting service when prettier fails on an explicit reformat -->
+        <notificationGroup id="NodeSpark" displayType="BALLOON"/>
+
         <!-- ESLint inspection -->
         <externalAnnotator
             language="any"
@@ -117,6 +137,24 @@
         <!-- "npm install" banner on a project with no node_modules -->
         <editorNotificationProvider
             implementation="com.nodespark.notify.NodeModulesNotificationProvider"/>
+
+        <!-- .env files: highlighting, completion, and a key/value grid beside the text editor -->
+        <fileType name="DotEnv"
+                  implementationClass="com.nodespark.env.EnvFileType"
+                  fieldName="INSTANCE"
+                  language="DotEnv"
+                  fileNames=".env"
+                  patterns=".env.*;*.env"/>
+        <lang.parserDefinition language="DotEnv"
+                               implementationClass="com.nodespark.env.EnvParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="DotEnv"
+                                       implementationClass="com.nodespark.env.EnvSyntaxHighlighterFactory"/>
+        <lang.commenter language="DotEnv" implementationClass="com.nodespark.env.EnvCommenter"/>
+        <completion.contributor language="DotEnv"
+                                implementationClass="com.nodespark.env.EnvCompletionContributor"/>
+        <annotator language="DotEnv" implementationClass="com.nodespark.env.EnvDuplicateKeyAnnotator"/>
+        <fileEditorProvider implementation="com.nodespark.env.EnvTableEditorProvider"/>
+        <editorNotificationProvider implementation="com.nodespark.env.EnvTemplateNotificationProvider"/>
 
         <!-- describe/it outline in the Structure tool window -->
         <lang.psiStructureViewFactory
@@ -145,6 +183,13 @@
                 description="Format the current file with the project's Prettier">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="control alt shift P"/>
+        </action>
+
+        <action id="NodeSpark.NewEnvFromTemplate"
+                class="com.nodespark.env.CreateEnvFromTemplateAction"
+                text="New Env File from This..."
+                description="Create another .env file with the keys of this one">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
         </action>
 
         <group id="NodeSpark.Coverage" text="Node Coverage" popup="true">

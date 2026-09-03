@@ -64,6 +64,10 @@ dependencies {
             bundledModule("intellij.platform.smRunner")
             bundledModule("intellij.platform.testRunner")
         }
+        // LSP4IJ: the LSP client Community lacks. Optional at runtime (see plugin.xml), so this is
+        // only a compile classpath. 0.17.0 is the last release whose sinceBuild (233) covers 2024.1;
+        // newer ones require 242+, and the API used here has not changed since.
+        plugin("com.redhat.devtools.lsp4ij", "0.17.0")
         testFramework(TestFrameworkType.Platform)
     }
     // The IDE ships gson in util-8.jar; compileOnly keeps a duplicate copy out of the plugin zip.

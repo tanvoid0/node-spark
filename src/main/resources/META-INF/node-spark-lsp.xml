@@ -1,0 +1,30 @@
+<!--
+  Loaded only when the LSP4IJ plugin is installed. It is the LSP client that IntelliJ Community
+  lacks; through it the project's own typescript-language-server supplies completion, auto-import,
+  go-to-definition and hover for JavaScript and TypeScript.
+-->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
+        <server id="nodeSparkTypeScript"
+                name="NodeSpark (typescript-language-server)"
+                factoryClass="com.nodespark.lsp.TsLanguageServerFactory">
+            <description><![CDATA[
+                Runs the <code>typescript-language-server</code> installed in the project's own
+                <code>node_modules</code>. Enable under <b>Settings &rarr; NodeSpark</b>.
+            ]]></description>
+        </server>
+
+        <!-- Community has no JavaScript Language to map, so files are matched by name. The
+             languageId is what tsserver switches its behaviour on, hence one mapping per dialect. -->
+        <fileNamePatternMapping patterns="*.js;*.mjs;*.cjs" serverId="nodeSparkTypeScript" languageId="javascript"/>
+        <fileNamePatternMapping patterns="*.jsx" serverId="nodeSparkTypeScript" languageId="javascriptreact"/>
+        <fileNamePatternMapping patterns="*.ts;*.mts;*.cts" serverId="nodeSparkTypeScript" languageId="typescript"/>
+        <fileNamePatternMapping patterns="*.tsx" serverId="nodeSparkTypeScript" languageId="typescriptreact"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- "the server is not installed" banner: only meaningful when LSP4IJ is here to use it -->
+        <editorNotificationProvider
+            implementation="com.nodespark.lsp.TsServerNotificationProvider"/>
+    </extensions>
+</idea-plugin>

@@ -25,6 +25,18 @@ enum class NodePackageManager(val binName: String) {
     /** argv (after the binary) that installs dependencies. */
     fun installArgs(): List<String> = listOf("install")
 
+    /**
+     * argv (after the binary) that adds [packages] as dev dependencies.
+     * npm is the odd one out: `npm add` exists but the dev flag is spelled `--save-dev`, while the
+     * other three take `add` with a short flag.
+     */
+    fun addDevArgs(packages: List<String>): List<String> = when (this) {
+        NPM -> listOf("install", "--save-dev") + packages
+        YARN -> listOf("add", "--dev") + packages
+        PNPM -> listOf("add", "--save-dev") + packages
+        BUN -> listOf("add", "--dev") + packages
+    }
+
     companion object {
         private val PACKAGE_MANAGER_FIELD =
             Regex(""""packageManager"\s*:\s*"([a-zA-Z]+)""")

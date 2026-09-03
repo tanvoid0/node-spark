@@ -14,6 +14,9 @@ class NodeSparkSettings : PersistentStateComponent<NodeSparkSettings.State> {
         var defaultEnvVars: String = "NODE_ENV=test",
         var autoDetectRunner: Boolean = true,
         var runnerOverride: String = "",  // empty = auto-detect
+        // Off by default: it starts a second long-lived node process per project, and needs both
+        // the LSP4IJ plugin and a project-local typescript-language-server to do anything.
+        var lspEnabled: Boolean = false,
     )
 
     private var state = State()
@@ -43,6 +46,10 @@ class NodeSparkSettings : PersistentStateComponent<NodeSparkSettings.State> {
     var runnerOverride: String
         get() = state.runnerOverride
         set(v) { state.runnerOverride = v }
+
+    var lspEnabled: Boolean
+        get() = state.lspEnabled
+        set(v) { state.lspEnabled = v }
 
     companion object {
         val instance: NodeSparkSettings

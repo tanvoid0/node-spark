@@ -47,14 +47,22 @@ object NodeRunnerEntry {
     fun resolve(runner: NodeTestDetector.TestRunner, startDir: File, projectRoot: File?): String? {
         if (runner == NodeTestDetector.TestRunner.NODE_TEST) return null // `node --test`, no entry script
         val binName = BIN_NAME[runner] ?: return null
+        val entry = resolveEntry(PACKAGE_NAME[runner].orEmpty(), binName, startDir, projectRoot)
+        if (entry == null) LOG.debug("No entry point found for $runner from $startDir")
+        return entry
+    }
 
+    /**
+     * The same node_modules walk for any CLI package: the first of [packages] whose package.json
+     * declares a `bin` entry named [binName], falling back to reading the Windows shim.
+     */
+    fun resolveEntry(packages: List<String>, binName: String, startDir: File, projectRoot: File?): String? {
         for (nodeModules in nodeModulesChain(startDir, projectRoot)) {
-            for (pkg in PACKAGE_NAME[runner].orEmpty()) {
+            for (pkg in packages) {
                 fromPackageJson(File(nodeModules, pkg), binName)?.let { return it }
             }
             fromCmdShim(File(nodeModules, ".bin"), binName)?.let { return it }
         }
-        LOG.debug("No entry point found for $runner from $startDir")
         return null
     }
 

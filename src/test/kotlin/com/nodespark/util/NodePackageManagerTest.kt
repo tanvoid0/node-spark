@@ -84,4 +84,32 @@ class NodePackageManagerTest {
     @Test fun `install argv`() {
         assertEquals(listOf("install"), NodePackageManager.YARN.installArgs())
     }
+
+    // ── dev dependency install argv ─────────────────────────────────────────
+
+    private val pkgs = listOf("typescript", "typescript-language-server")
+
+    @Test fun `npm adds dev deps with save-dev`() {
+        assertEquals(
+            listOf("install", "--save-dev", "typescript", "typescript-language-server"),
+            NodePackageManager.NPM.addDevArgs(pkgs),
+        )
+    }
+
+    @Test fun `yarn adds dev deps with add --dev`() {
+        assertEquals(listOf("add", "--dev") + pkgs, NodePackageManager.YARN.addDevArgs(pkgs))
+    }
+
+    @Test fun `pnpm adds dev deps with add --save-dev`() {
+        assertEquals(listOf("add", "--save-dev") + pkgs, NodePackageManager.PNPM.addDevArgs(pkgs))
+    }
+
+    @Test fun `bun adds dev deps with add --dev`() {
+        assertEquals(listOf("add", "--dev") + pkgs, NodePackageManager.BUN.addDevArgs(pkgs))
+    }
+
+    /** No packages must never degrade into a bare `install`, which would rewrite the lockfile. */
+    @Test fun `no packages still names the add subcommand`() {
+        assertEquals(listOf("add", "--dev"), NodePackageManager.YARN.addDevArgs(emptyList()))
+    }
 }

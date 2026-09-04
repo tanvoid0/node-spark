@@ -15,6 +15,12 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.3.1</b>
+        <ul>
+          <li>Same code as 0.3.0, published with the author signature the previous upload was
+              missing, so the IDE no longer warns about an unsigned plugin on install.</li>
+        </ul>
+
         <b>0.3.0</b>
         <ul>
           <li>Gutter run/debug icons no longer depend on a JavaScript PSI, so they finally appear in

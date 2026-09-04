@@ -107,7 +107,7 @@ at the project root; `.env.example` is the template, and `./gradlew releaseCheck
 them are set without printing any value. The Marketplace token comes from
 <https://plugins.jetbrains.com/author/me/tokens>, and the signing keypair is generated once with
 `scripts/new-signing-key.sh` — reuse it for every subsequent release. On Windows run that script
-with `& "C:\Program Files\Gitinash.exe" scripts/new-signing-key.sh`: a bare `bash` there is
+with `& "C:\Program Files\Git\bin\bash.exe" scripts/new-signing-key.sh`: a bare `bash` there is
 the WSL launcher, not Git Bash.
 
 ```

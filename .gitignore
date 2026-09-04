@@ -18,3 +18,7 @@ demo/coverage/
 
 # IDE Features Trainer scratch, created when the demo project is opened
 demo/ide-trainer/
+
+# Release secrets: Marketplace token and the signing keypair. .env.example is the tracked template.
+.env
+secrets/

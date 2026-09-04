@@ -11,6 +11,26 @@ plugins {
 // See gradle.properties: 262 moved the SM test-tree classes out of the platform core classloader.
 val is262 = providers.gradleProperty("ideVariant").getOrElse("241") == "262"
 
+/**
+ * Release secrets, read from the environment first and then from a gitignored `.env` beside this
+ * file, so a release can be cut from a plain terminal without exporting anything by hand. `.env` is
+ * never committed - see `.env.example` for the keys and how to fill them.
+ */
+val dotenv: Map<String, String> = file(".env").takeIf { it.isFile }
+    ?.readLines()
+    .orEmpty()
+    .mapNotNull { line ->
+        val trimmed = line.trim()
+        if (trimmed.isEmpty() || trimmed.startsWith("#")) return@mapNotNull null
+        val separator = trimmed.indexOf('=').takeIf { it > 0 } ?: return@mapNotNull null
+        val value = trimmed.substring(separator + 1).trim().trim('"')
+        if (value.isEmpty()) null else trimmed.substring(0, separator).trim() to value
+    }
+    .toMap()
+
+fun secret(name: String): Provider<String> =
+    providers.environmentVariable(name).orElse(providers.provider { dotenv[name] })
+
 group = providers.gradleProperty("pluginGroup").get()
 // The two variants must not overwrite each other's zip, and the marketplace needs distinct,
 // correctly ORDERED versions for the two build ranges. A "-262" suffix would be read as a semver
@@ -96,6 +116,32 @@ if (is262) {
     }
 }
 
+// One check before a release: are the secrets there at all? Names and presence only - a value is
+// never printed, so this is safe to run with output shared.
+tasks.register("releaseCheck") {
+    group = "intellij platform"
+    description = "Reports which release secrets are set, without printing any of their values."
+    val found = listOf(
+        "PUBLISH_TOKEN", "PRIVATE_KEY_PASSWORD", "PUBLISH_CHANNEL",
+        "PRIVATE_KEY", "CERTIFICATE_CHAIN",
+    ).associateWith { secret(it).isPresent }
+    val files = listOf("PRIVATE_KEY_FILE", "CERTIFICATE_CHAIN_FILE").associateWith { name ->
+        secret(name).orNull?.let { it to file(it).isFile }
+    }
+    doLast {
+        found.forEach { (name, present) -> logger.lifecycle("${if (present) "set    " else "missing"}  $name") }
+        files.forEach { (name, value) ->
+            logger.lifecycle(
+                when {
+                    value == null -> "missing  $name"
+                    value.second -> "set      $name -> ${value.first}"
+                    else -> "BROKEN   $name -> ${value.first} does not exist"
+                },
+            )
+        }
+    }
+}
+
 // Open the bundled demo project on runIde, so a sandbox launch lands straight in something testable.
 tasks.runIde {
     args(project.file("demo").absolutePath)
@@ -126,13 +172,19 @@ intellijPlatform {
         }
     }
 
+    // A PEM does not fit on one line, so the key and the chain are given as paths to files kept
+    // outside version control; the inline forms still work for CI, where a secret is a string.
     signing {
-        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
-        privateKey = providers.environmentVariable("PRIVATE_KEY")
-        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+        certificateChain = secret("CERTIFICATE_CHAIN")
+        privateKey = secret("PRIVATE_KEY")
+        password = secret("PRIVATE_KEY_PASSWORD")
+        secret("CERTIFICATE_CHAIN_FILE").orNull?.let { certificateChainFile = layout.projectDirectory.file(it) }
+        secret("PRIVATE_KEY_FILE").orNull?.let { privateKeyFile = layout.projectDirectory.file(it) }
     }
 
     publishing {
-        token = providers.environmentVariable("PUBLISH_TOKEN")
+        token = secret("PUBLISH_TOKEN")
+        // A plugin can be published to a non-default channel ("eap", "beta") for a pre-release.
+        secret("PUBLISH_CHANNEL").orNull?.let { channels = listOf(it) }
     }
 }

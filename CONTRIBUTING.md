@@ -91,3 +91,30 @@ Include:
 Open an issue tagged `enhancement` before writing code. Some things are deliberately out of scope
 because they need platform APIs Community does not expose, or would duplicate what the project's
 own tooling already does.
+
+## Releasing
+
+Bump `pluginVersion` in `gradle.properties`, then build both variants — one zip cannot serve both
+build ranges:
+
+```
+./gradlew clean buildPlugin
+./gradlew -PideVariant=262 buildPlugin
+```
+
+Signing and upload read their secrets from the environment first and then from a gitignored `.env`
+at the project root; `.env.example` is the template, and `./gradlew releaseCheck` reports which of
+them are set without printing any value. The Marketplace token comes from
+<https://plugins.jetbrains.com/author/me/tokens>, and the signing keypair is generated once with
+the two `openssl` commands in `.env.example` — reuse it for every subsequent release.
+
+```
+./gradlew verifyPlugin
+./gradlew publishPlugin
+./gradlew -PideVariant=262 publishPlugin
+```
+
+A plugin that has never been on the Marketplace cannot be created through the API: upload the first
+zip by hand at <https://plugins.jetbrains.com/plugin/add>, after which `publishPlugin` handles
+updates. `runIde` must not be running during a build — its sandbox holds files that
+`prepareSandbox` rewrites.

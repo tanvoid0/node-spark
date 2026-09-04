@@ -31,7 +31,23 @@ Harmless for ordinary local projects, but a scratch file, a file in a remote or 
 filesystem, or a fixture will hit it. Worth a guard that skips the annotator when the file has no
 real path, which would also let daemon-level tests run.
 
+## Coverage is manual, not IDE-native
+
+**Status:** future enhancement.
+
+`NodeCoverageActions`/`NodeCoverageService` (`src/main/kotlin/com/nodespark/coverage/`) run the
+suite via a plain `Tools → Node Coverage` menu action, parse the `lcov.info` it writes, and paint
+covered/uncovered stripes into the editor gutter by hand. That's the whole feature today: no
+`com.intellij.coverageEngine`/`CoverageRunner` registration, so there is no Run-with-Coverage button
+next to Run/Debug on a test or a file, and no Coverage tool window with per-file or per-function
+percentages — the IDE has no idea coverage data exists.
+
+Doing this natively means implementing `CoverageEngine`, `CoverageRunner` and
+`CoverageAnnotator` for `LCOV_RELATIVE`-shaped data (`LcovParser` already does the hard part —
+parsing — and could be reused as the `CoverageRunner`'s loader) and registering the run configs'
+executor so `ExecutionRegistry` offers a coverage executor alongside Run and Debug.
+
 ## Screenshots
 
-`docs/screenshots/` is specified in [screenshots/README.md](screenshots/README.md) but empty — the
-README references eight images that do not exist yet.
+`docs/screenshots/` is specified in [screenshots/README.md](screenshots/README.md); `coverage.png`
+is still missing since the feature it would show is only the basic version above.

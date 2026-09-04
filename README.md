@@ -26,7 +26,7 @@ project.
 | 🐞 **Debugger** | Breakpoints in test files and plain scripts, or attach to a running `node --inspect`. |
 | 📦 **package.json scripts** | A ▶ beside every script; npm / yarn / pnpm / bun detected automatically. |
 | 🎨 **ESLint + Prettier** | Inline ESLint warnings; `Ctrl+Alt+L` formats with the project's own Prettier. |
-| 📊 **Coverage** | Run with coverage or load an existing `lcov.info`, painted into the gutter. |
+| 📊 **Coverage (basic)** | **Tools → Node Coverage** runs the suite and paints an `lcov.info` into the gutter as covered/uncovered stripes. Manual only — no native Run-with-Coverage button yet, [see known issues](docs/known-issues.md#coverage-is-manual-not-ide-native). |
 | 🔑 **`.env` editor** | Highlighting, duplicate-key warnings, and a key/value grid beside the text. |
 | 💡 **Completion & imports** | Optional: drives the project's `typescript-language-server` over LSP. |
 | ⚙️ **Node.js SDK** | A real SDK type in Project Structure, auto-detected from PATH, nvm and fnm. |
@@ -138,9 +138,10 @@ does anything in a project without its own ESLint or Prettier.
 **Tools → Node Coverage** — run the tests with coverage, or load an existing `coverage/lcov.info`.
 Covered and uncovered lines are striped into the editor gutter until you hide them again.
 
-<p align="center">
-  <img src="docs/screenshots/coverage.png" alt="Covered and uncovered line stripes in the editor gutter" width="760">
-</p>
+This is a manual, menu-driven check, not the IDE's native coverage integration: no Run-with-Coverage
+button on a test or file, and no Coverage tool window with per-file/function percentages. See
+[known issues](docs/known-issues.md#coverage-is-manual-not-ide-native) for what a native integration
+would need.
 
 ### `.env` files
 

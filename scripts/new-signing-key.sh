@@ -6,6 +6,11 @@
 # overwrite an existing key for that reason.
 #
 #   bash scripts/new-signing-key.sh
+#
+# On Windows, `bash` on PATH is usually C:\WINDOWS\system32ash.exe - the WSL launcher, which
+# fails with "execvpe(/bin/bash) failed" when no distro is installed. Name Git's own bash instead:
+#
+#   & "C:\Program Files\Gitinash.exe" scripts/new-signing-key.sh
 set -euo pipefail
 
 # Git Bash rewrites an argument that looks like a Unix path, which turns the certificate subject

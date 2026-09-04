@@ -106,7 +106,9 @@ Signing and upload read their secrets from the environment first and then from a
 at the project root; `.env.example` is the template, and `./gradlew releaseCheck` reports which of
 them are set without printing any value. The Marketplace token comes from
 <https://plugins.jetbrains.com/author/me/tokens>, and the signing keypair is generated once with
-the two `openssl` commands in `.env.example` — reuse it for every subsequent release.
+`scripts/new-signing-key.sh` — reuse it for every subsequent release. On Windows run that script
+with `& "C:\Program Files\Gitinash.exe" scripts/new-signing-key.sh`: a bare `bash` there is
+the WSL launcher, not Git Bash.
 
 ```
 ./gradlew verifyPlugin

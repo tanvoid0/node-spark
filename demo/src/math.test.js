@@ -2,7 +2,7 @@ const { add, subtract, multiply, divide, factorial, fibonacci } = require('./mat
 
 describe('add', () => {
   test('adds two positive numbers', () => {
-    expect(add(2, 3)).toBe(5);
+    expect(add(2, 3)).toBe(6);
   });
 
   test('adds negative numbers', () => {

@@ -30,7 +30,10 @@ class NodeTestConsoleProperties(
  * Reading the finished tree once is enough — the gutter is not repainted mid-run anyway.
  */
 fun SMTRunnerConsoleView.recordResultsInto(project: Project, testFilePath: String) {
-    TestResultStore.getInstance(project).clearFile(testFilePath.replace('\\', '/'))
+    // Deliberately not clearing the file's stored results first: a gutter click runs ONE test or
+    // one describe, and wiping the file would blank every other group's tick until it was re-run.
+    // Nothing goes stale by keeping them — the gutter only draws icons for tests the current parse
+    // of the file still finds, so a deleted test cannot show an old result.
     resultsViewer.addEventsListener(object : TestResultsViewer.EventsListener {
         override fun onTestingFinished(viewer: TestResultsViewer) {
             val store = TestResultStore.getInstance(project)
@@ -47,11 +50,15 @@ private fun collect(node: SMTestProxy, store: TestResultStore) {
     store.put(
         file,
         node.name,
-        when {
-            node.isIgnored -> TestStatus.SKIPPED
-            node.isDefect -> TestStatus.FAILED
-            else -> TestStatus.PASSED
-        },
+        TestResult(
+            status = when {
+                node.isIgnored -> TestStatus.SKIPPED
+                node.isDefect -> TestStatus.FAILED
+                else -> TestStatus.PASSED
+            },
+            failLine = if (node.isDefect) failLineOf(node, file) else null,
+            failMessage = node.errorMessage,
+        ),
     )
 }
 
@@ -60,3 +67,14 @@ private fun fileOf(node: SMTestProxy): String? =
     node.locationUrl?.removePrefix("file://")
         ?.replace(Regex(""":\d+(:\d+)?$"""), "")
         ?.takeIf { it.isNotEmpty() }
+
+/**
+ * First stack frame naming the test file itself, not a node_modules/runner internal — the line the
+ * assertion actually failed on. Matched by full path, not just the file name: two test files with
+ * the same basename in different directories (two `helpers.test.js`, say) would otherwise blame
+ * whichever one's stack frame the regex found first.
+ */
+private fun failLineOf(node: SMTestProxy, file: String): Int? {
+    val stacktrace = node.stacktrace?.replace('\\', '/') ?: return null
+    return Regex("""${Regex.escape(file)}:(\d+)""").find(stacktrace)?.groupValues?.get(1)?.toIntOrNull()
+}

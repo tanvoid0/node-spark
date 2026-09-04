@@ -17,6 +17,7 @@ import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.components.JBTextField
 import com.intellij.ui.components.fields.ExpandableTextField
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.JBUI
@@ -28,13 +29,19 @@ import java.awt.event.ActionEvent
 import java.beans.PropertyChangeListener
 import javax.swing.AbstractAction
 import javax.swing.DefaultCellEditor
+import javax.swing.JComboBox
 import javax.swing.JComponent
+import javax.swing.JMenuItem
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
 import javax.swing.JTable
 import javax.swing.KeyStroke
 import javax.swing.ListSelectionModel
 import javax.swing.table.AbstractTableModel
-import javax.swing.table.DefaultTableCellRenderer
+import javax.swing.table.TableCellRenderer
+
+/** A comment written as `#a | b | c` documents the values a variable accepts. */
+private val VALUE_HINT_TOKEN = Regex("[A-Za-z0-9_.:/-]+")
 
 /** Adds a "Variables" tab beside the text editor of any .env file. */
 class EnvTableEditorProvider : FileEditorProvider, DumbAware {
@@ -65,6 +72,8 @@ class EnvTableEditor(private val project: Project, private val file: VirtualFile
         /** The `#` block above the assignment, one entry per line. */
         var doc: String,
         val source: EnvFile.Pair? = null,
+        /** Per-row override of the "Hide values" checkbox. */
+        var revealed: Boolean = false,
     ) {
         /** Both kinds of comment as one editable blob: the block first, the inline note last. */
         fun commentCell(): String = listOf(doc, comment).filter { it.isNotEmpty() }.joinToString("\n")
@@ -100,22 +109,31 @@ class EnvTableEditor(private val project: Project, private val file: VirtualFile
 
     private val model = object : AbstractTableModel() {
         override fun getRowCount() = rows.size
-        override fun getColumnCount() = 3
+        override fun getColumnCount() = 4
         override fun getColumnName(column: Int) = when (column) {
             0 -> "Key"
             1 -> "Value"
-            else -> "Comment"
+            2 -> "Comment"
+            else -> "Show"
         }
+
+        override fun getColumnClass(column: Int) = if (column == 3) Boolean::class.javaObjectType else String::class.java
 
         override fun isCellEditable(row: Int, column: Int) = true
 
         override fun getValueAt(row: Int, column: Int): Any = when (column) {
             0 -> rows[row].key
             1 -> rows[row].value
-            else -> rows[row].commentCell()
+            2 -> rows[row].commentCell()
+            else -> rows[row].revealed
         }
 
         override fun setValueAt(value: Any?, row: Int, column: Int) {
+            if (column == 3) {
+                rows[row].revealed = value as? Boolean ?: false
+                fireTableCellUpdated(row, 1)
+                return
+            }
             val text = value?.toString().orEmpty()
             when (column) {
                 0 -> rows[row].key = text.trim()
@@ -127,17 +145,27 @@ class EnvTableEditor(private val project: Project, private val file: VirtualFile
         }
     }
 
+    private val valueCombo = JComboBox<String>().apply { isEditable = true }
+
     private val table = JBTable(model).apply {
         setShowGrid(true)
         selectionModel.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
         putClientProperty("terminateEditOnFocusLost", true)
+        columnModel.getColumn(0).cellRenderer = FieldRenderer()
         columnModel.getColumn(1).cellRenderer = MaskingRenderer()
+        columnModel.getColumn(1).cellEditor = ValueCellEditor()
         columnModel.getColumn(2).cellRenderer = CommentRenderer()
         // A .env comment can run to several lines; the expandable field opens a popup (the icon at
         // its right, or Shift+Enter) where they can be edited as lines rather than one long string.
         columnModel.getColumn(2).cellEditor = DefaultCellEditor(
             ExpandableTextField({ it.split("\n") }, { it.joinToString("\n") }),
         )
+        columnModel.getColumn(3).apply {
+            headerValue = "Show"
+            minWidth = 40
+            maxWidth = 48
+            preferredWidth = 44
+        }
     }
 
     private val component: JComponent = JPanel(BorderLayout()).apply {
@@ -167,6 +195,7 @@ class EnvTableEditor(private val project: Project, private val file: VirtualFile
 
     init {
         installClipboardActions()
+        installContextMenu()
         pull()
         document?.addDocumentListener(
             object : DocumentListener {
@@ -280,8 +309,88 @@ class EnvTableEditor(private val project: Project, private val file: VirtualFile
         CopyPasteManager.getInstance().setContents(StringSelection(text))
     }
 
+    /** Right-click menu for copying one field at a time, since Ctrl+C always copies whole pairs. */
+    private fun installContextMenu() {
+        table.addMouseListener(
+            object : java.awt.event.MouseAdapter() {
+                override fun mousePressed(e: java.awt.event.MouseEvent) = maybeShowPopup(e)
+                override fun mouseReleased(e: java.awt.event.MouseEvent) = maybeShowPopup(e)
+            },
+        )
+    }
+
+    private fun maybeShowPopup(e: java.awt.event.MouseEvent) {
+        if (!e.isPopupTrigger) return
+        val row = table.rowAtPoint(e.point)
+        if (row !in rows.indices) return
+        if (row !in table.selectedRows) table.setRowSelectionInterval(row, row)
+        JPopupMenu().apply {
+            add(JMenuItem("Copy Key").apply { addActionListener { copyField { it.key } } })
+            add(JMenuItem("Copy Value").apply { addActionListener { copyField { it.value } } })
+            add(JMenuItem("Copy Comment").apply { addActionListener { copyField { it.commentCell() } } })
+            addSeparator()
+            add(JMenuItem("Copy Pair").apply { addActionListener { copyToClipboard() } })
+        }.show(table, e.x, e.y)
+    }
+
+    private fun copyField(selector: (Row) -> String) {
+        val text = table.selectedRows.joinToString("\n") { selector(rows[it]) }
+        if (text.isNotEmpty()) CopyPasteManager.getInstance().setContents(StringSelection(text))
+    }
+
+    /**
+     * Values worth offering in the dropdown: those documented in the row's own `#a | b | c` comment,
+     * plus whatever the same key is set to in sibling .env files (.env.example first and foremost).
+     */
+    private fun suggestionsFor(row: Row): List<String> {
+        val tokens = row.comment.split("|").map { it.trim() }
+        val hinted = if (tokens.size >= 2 && tokens.all { it.isNotEmpty() && VALUE_HINT_TOKEN.matches(it) }) tokens else emptyList()
+        val fromSiblings = if (row.key.isEmpty()) emptyList() else EnvSiblings.valuesFor(row.key, file)
+        return (hinted + fromSiblings).distinct()
+    }
+
+    private inner class ValueCellEditor : DefaultCellEditor(valueCombo) {
+        override fun getTableCellEditorComponent(
+            table: JTable,
+            value: Any?,
+            isSelected: Boolean,
+            row: Int,
+            column: Int,
+        ): Component {
+            valueCombo.removeAllItems()
+            suggestionsFor(rows[row]).forEach(valueCombo::addItem)
+            return super.getTableCellEditorComponent(table, value, isSelected, row, column)
+        }
+    }
+
+    /**
+     * Renders a cell as a real (disabled-editing) text field rather than a bare label, so it reads
+     * as an input the way the cell editor that replaces it on click does — not as static text.
+     */
+    private open class FieldRenderer : JBTextField(), TableCellRenderer {
+        init {
+            isEditable = false
+            isFocusable = false
+        }
+
+        override fun getTableCellRendererComponent(
+            table: JTable,
+            value: Any?,
+            selected: Boolean,
+            focused: Boolean,
+            row: Int,
+            column: Int,
+        ): Component {
+            text = value?.toString().orEmpty()
+            toolTipText = null
+            background = if (selected) table.selectionBackground else table.background
+            foreground = if (selected) table.selectionForeground else table.foreground
+            return this
+        }
+    }
+
     /** A multi-line comment has to fit one row, so it is flattened, with the whole text on hover. */
-    private class CommentRenderer : DefaultTableCellRenderer() {
+    private class CommentRenderer : FieldRenderer() {
         override fun getTableCellRendererComponent(
             table: JTable,
             value: Any?,
@@ -303,7 +412,7 @@ class EnvTableEditor(private val project: Project, private val file: VirtualFile
         }
     }
 
-    private inner class MaskingRenderer : DefaultTableCellRenderer() {
+    private inner class MaskingRenderer : FieldRenderer() {
         override fun getTableCellRendererComponent(
             table: JTable,
             value: Any?,
@@ -312,7 +421,7 @@ class EnvTableEditor(private val project: Project, private val file: VirtualFile
             row: Int,
             column: Int,
         ): Component {
-            val shown = if (valuesHidden && !value?.toString().isNullOrEmpty()) {
+            val shown = if (valuesHidden && !rows[row].revealed && !value?.toString().isNullOrEmpty()) {
                 "•".repeat(value.toString().length.coerceAtMost(24))
             } else {
                 value

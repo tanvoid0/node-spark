@@ -1,5 +1,7 @@
 package com.nodespark.env
 
+import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 
 /** Locating the other .env files that sit beside the one being edited. */
@@ -8,6 +10,8 @@ object EnvSiblings {
     /** Names conventionally used for the committed, value-less template. */
     val TEMPLATE_NAMES = listOf(".env.example", ".env.sample", ".env.template", ".env.dist", "env.example")
 
+    private const val MAX_BYTES = 512L * 1024
+
     fun isTemplate(name: String): Boolean = TEMPLATE_NAMES.any { name.equals(it, ignoreCase = true) }
 
     /** Every .env* file in the same directory, excluding [file] itself. */
@@ -15,6 +19,22 @@ object EnvSiblings {
         file.parent?.children.orEmpty()
             .filter { !it.isDirectory && it != file && EnvFileType.matches(it) }
             .sortedBy { it.name }
+
+    /** [file]'s text, or null when it is unreadable or too large to bother with. */
+    fun readSafely(file: VirtualFile): String? = try {
+        if (file.length > MAX_BYTES) null else VfsUtilCore.loadText(file)
+    } catch (e: Exception) {
+        logger<EnvSiblings>().debug("cannot read ${file.name}", e)
+        null
+    }
+
+    /** Values assigned to [key] in the sibling .env files next to [file], deduplicated. */
+    fun valuesFor(key: String, file: VirtualFile): List<String> =
+        siblings(file).flatMap { sibling ->
+            readSafely(sibling)?.let { text ->
+                EnvFile.parse(text).pairs.filter { it.key == key && it.value.isNotEmpty() }.map { it.value }
+            }.orEmpty()
+        }.distinct()
 
     /** The template next to [file], if there is one. */
     fun template(file: VirtualFile): VirtualFile? =

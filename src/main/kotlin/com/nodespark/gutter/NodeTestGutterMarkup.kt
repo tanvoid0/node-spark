@@ -20,13 +20,13 @@ import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.BulkAwareDocumentListener
 import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
+import com.intellij.openapi.editor.colors.CodeInsightColors
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.editor.markup.HighlighterLayer
 import com.intellij.openapi.editor.markup.RangeHighlighter
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
-import com.nodespark.icons.NodeSparkIcons
 import com.nodespark.run.NodeTestConfigurationUtil
 import com.nodespark.run.NodeTestRunConfiguration
 import com.nodespark.structure.OutlineNode
@@ -114,9 +114,19 @@ class NodeTestGutterMarkup : EditorFactoryListener {
             val store = TestResultStore.getInstance(project)
             val added = ArrayList<RangeHighlighter>()
 
+            fun leafStatuses(node: OutlineNode): List<TestStatus?> =
+                if (node.children.isEmpty()) listOf(store.get(path, node.name)?.status)
+                else node.children.flatMap { leafStatuses(it) }
+
             fun add(node: OutlineNode, ancestors: List<String>) {
                 if (node.offset >= document.textLength) return
                 val names = ancestors + node.name
+                val isSuite = node.kind == TestKind.DESCRIBE
+                val result = if (isSuite) null else store.get(path, node.name)
+                // A describe reports no result of its own: its icon is the roll-up of the tests
+                // underneath it, so a green suite means every test in it passed.
+                val status = if (isSuite) suiteStatus(leafStatuses(node)) else result?.status
+
                 val highlighter = editor.markupModel.addLineHighlighter(
                     null,
                     document.getLineNumber(node.offset),
@@ -127,10 +137,24 @@ class NodeTestGutterMarkup : EditorFactoryListener {
                     filePath = path,
                     testName = node.name,
                     namePath = names,
-                    isSuite = node.kind == TestKind.DESCRIBE,
-                    status = store.get(path, node.name),
+                    isSuite = isSuite,
+                    status = status,
                 )
                 added.add(highlighter)
+
+                // The assertion that actually failed, not just the `it(...)` line — same red wave
+                // IntelliJ puts under a real compile error.
+                val failLine = result?.failLine?.minus(1)
+                if (status == TestStatus.FAILED && failLine != null && failLine in 0 until document.lineCount) {
+                    val errorHighlighter = editor.markupModel.addLineHighlighter(
+                        CodeInsightColors.ERRORS_ATTRIBUTES,
+                        failLine,
+                        HighlighterLayer.ADDITIONAL_SYNTAX,
+                    )
+                    errorHighlighter.errorStripeTooltip = result.failMessage
+                    added.add(errorHighlighter)
+                }
+
                 node.children.forEach { add(it, names) }
             }
 
@@ -138,6 +162,18 @@ class NodeTestGutterMarkup : EditorFactoryListener {
             editor.putUserData(MARKERS, added)
         }
     }
+}
+
+/**
+ * Roll-up shown on a `describe` line. One failure colours the whole suite red; a suite is only
+ * green once every test under it has a result and none failed — a half-run suite keeps the arrow.
+ */
+internal fun suiteStatus(leaves: List<TestStatus?>): TestStatus? = when {
+    leaves.isEmpty() -> null
+    leaves.any { it == TestStatus.FAILED } -> TestStatus.FAILED
+    leaves.any { it == null } -> null
+    leaves.all { it == TestStatus.SKIPPED } -> TestStatus.SKIPPED
+    else -> TestStatus.PASSED
 }
 
 private class TestGutterIcon(
@@ -155,7 +191,10 @@ private class TestGutterIcon(
         TestStatus.PASSED -> AllIcons.RunConfigurations.TestState.Green2
         TestStatus.FAILED -> AllIcons.RunConfigurations.TestState.Red2
         TestStatus.SKIPPED -> AllIcons.RunConfigurations.TestState.Yellow2
-        null -> NodeSparkIcons.RunTest
+        // Same icons the IDE puts beside a JUnit class or method: the double arrow means
+        // "run everything under here", the single one means "run this test".
+        null -> if (isSuite) AllIcons.RunConfigurations.TestState.Run_run
+        else AllIcons.RunConfigurations.TestState.Run
     }
 
     private val fullName: String get() = namePath.joinToString(" > ")
@@ -175,11 +214,14 @@ private class TestGutterIcon(
         launch("Debug '$fullName'", DefaultDebugExecutor.EXECUTOR_ID),
     )
 
-    private fun launch(text: String, executorId: String): AnAction = object : AnAction(text, null, null) {
-        override fun actionPerformed(e: AnActionEvent) {
-            val settings = configuration() ?: return
-            val executor = ExecutorRegistry.getInstance().getExecutorById(executorId) ?: return
-            ExecutionUtil.runConfiguration(settings, executor)
+    private fun launch(text: String, executorId: String): AnAction {
+        val executor = ExecutorRegistry.getInstance().getExecutorById(executorId)
+        return object : AnAction(text, "$text in Node.js", executor?.icon) {
+            override fun actionPerformed(e: AnActionEvent) {
+                val settings = configuration() ?: return
+                val runExecutor = ExecutorRegistry.getInstance().getExecutorById(executorId) ?: return
+                ExecutionUtil.runConfiguration(settings, runExecutor)
+            }
         }
     }
 

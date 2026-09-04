@@ -9,9 +9,7 @@ import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.util.TextRange
-import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiElement
@@ -49,7 +47,7 @@ class EnvCompletionContributor : CompletionContributor() {
         if (before.trimStart().startsWith("#")) return
 
         val siblings = EnvSiblings.siblings(virtualFile).mapNotNull { sibling ->
-            readText(sibling)?.let { sibling.name to EnvFile.parse(it).pairs }
+            EnvSiblings.readSafely(sibling)?.let { sibling.name to EnvFile.parse(it).pairs }
         }
         if (siblings.isEmpty()) return
 
@@ -87,16 +85,6 @@ class EnvCompletionContributor : CompletionContributor() {
         }
     }
 
-    private fun readText(file: VirtualFile): String? = try {
-        if (file.length > MAX_BYTES) null else VfsUtilCore.loadText(file)
-    } catch (e: Exception) {
-        logger<EnvCompletionContributor>().debug("cannot read ${file.name}", e)
-        null
-    }
-
-    private companion object {
-        const val MAX_BYTES = 512L * 1024
-    }
 }
 
 /** Warns on a key assigned twice: the later assignment silently wins, which is easy to miss. */

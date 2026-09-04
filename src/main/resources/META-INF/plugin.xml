@@ -4,17 +4,34 @@
     <vendor email="tanvoid0@gmail.com" url="https://tanvoid0.com">NodeSpark</vendor>
 
     <description><![CDATA[
-        JavaScript and TypeScript test runner for IntelliJ IDEA Community &mdash; no WebStorm
-        licence needed.<br/>
+        JavaScript and TypeScript (<code>.js</code>, <code>.jsx</code>, <code>.ts</code>,
+        <code>.tsx</code>) test runner for IntelliJ IDEA Community &mdash; no WebStorm licence
+        needed.<br/>
         Runs Jest, Vitest, Mocha and <code>node --test</code> with a real pass/fail test tree,
-        gutter run icons, package.json script running, a CDP debugger, ESLint/Prettier and
-        lcov coverage.<br/><br/>
+        gutter run icons, <code>package.json</code> script running, a CDP debugger, ESLint/Prettier,
+        lcov coverage, and a key/value grid editor for <code>.env</code> files.<br/><br/>
         Everything runs against the tools the project already installs in its own
         <code>node_modules</code> &mdash; nothing is downloaded and nothing is installed into your
         project. Tools are only executed in projects you have marked as trusted.
     ]]></description>
 
+    <category>Test Tools</category>
+
     <change-notes><![CDATA[
+        <b>0.4.0</b>
+        <ul>
+          <li>A key/value grid editor beside the text editor of any <code>.env</code> file, with a
+              per-row "Hide value" mask, a value dropdown sourced from the row's own documenting
+              comment and sibling <code>.env</code> files, and a right-click menu to copy one field
+              at a time.</li>
+          <li>A <code>describe</code> block's gutter icon now rolls up the status of every test
+              beneath it, and turns red at the exact assertion line that failed, with the failure
+              message on hover.</li>
+          <li>Unrun tests now show the same double-arrow / single-arrow icons IntelliJ uses for a
+              JUnit class or method, instead of a NodeSpark-specific icon.</li>
+          <li>Test results now survive an IDE restart instead of resetting to no icon.</li>
+        </ul>
+
         <b>0.3.1</b>
         <ul>
           <li>Same code as 0.3.0, published with the author signature the previous upload was

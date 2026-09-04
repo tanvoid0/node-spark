@@ -106,9 +106,15 @@ Signing and upload read their secrets from the environment first and then from a
 at the project root; `.env.example` is the template, and `./gradlew releaseCheck` reports which of
 them are set without printing any value. The Marketplace token comes from
 <https://plugins.jetbrains.com/author/me/tokens>, and the signing keypair is generated once with
-`scripts/new-signing-key.sh` — reuse it for every subsequent release. On Windows run that script
-with `& "C:\Program Files\Git\bin\bash.exe" scripts/new-signing-key.sh`: a bare `bash` there is
-the WSL launcher, not Git Bash.
+these two commands, and the key is reused for every subsequent release:
+
+```
+openssl genpkey -aes-256-cbc -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out secrets/private.pem
+openssl req -new -x509 -key secrets/private.pem -days 3650 -subj "/CN=NodeSpark Plugin Signing" -out secrets/chain.crt
+```
+
+Upload `secrets/chain.crt` to the Marketplace profile too: JetBrains verifies an author signature
+against the public key registered there, and an unsigned plugin makes the IDE warn on install.
 
 ```
 ./gradlew verifyPlugin

@@ -22,3 +22,7 @@ demo/ide-trainer/
 # Release secrets: Marketplace token and the signing keypair. .env.example is the tracked template.
 .env
 secrets/
+
+# Release helper scripts: they hold no secrets, but they only ever run on a maintainer's machine
+# and they touch .env and secrets/, so they stay local. CONTRIBUTING has the commands they run.
+scripts/

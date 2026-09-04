@@ -6,6 +6,7 @@ import com.intellij.execution.testframework.sm.runner.SMTestProxy
 import com.intellij.execution.testframework.sm.runner.ui.SMTRunnerConsoleView
 import com.intellij.execution.testframework.sm.runner.ui.TestResultsViewer
 import com.intellij.openapi.project.Project
+import com.nodespark.gutter.NodeTestGutterMarkup
 import com.nodespark.run.NodeTestRunConfiguration
 
 /**
@@ -34,6 +35,7 @@ fun SMTRunnerConsoleView.recordResultsInto(project: Project, testFilePath: Strin
         override fun onTestingFinished(viewer: TestResultsViewer) {
             val store = TestResultStore.getInstance(project)
             collect(viewer.testsRootNode ?: return, store)
+            NodeTestGutterMarkup.refreshAll(project)
         }
     })
 }

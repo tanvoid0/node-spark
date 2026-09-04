@@ -1,5 +1,8 @@
 # NodeSpark
 
+[![Version](https://img.shields.io/jetbrains/plugin/v/34061)](https://plugins.jetbrains.com/plugin/34061-nodespark)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/34061)](https://plugins.jetbrains.com/plugin/34061-nodespark)
+
 **Node.js support for IntelliJ IDEA Community.** Run and debug JavaScript and TypeScript tests,
 package.json scripts and plain Node files — with a real pass/fail test tree — without a WebStorm
 licence.
@@ -32,7 +35,8 @@ project.
 
 ## Install
 
-**From the Marketplace** — `Settings → Plugins → Marketplace` → search **NodeSpark** → Install.
+**From the Marketplace** — `Settings → Plugins → Marketplace` → search **NodeSpark** → Install, or
+grab it from the [JetBrains Marketplace page](https://plugins.jetbrains.com/plugin/34061-nodespark) directly.
 
 **From disk** — download the `.zip` from [Releases](../../releases), then
 `Settings → Plugins → ⚙ → Install Plugin from Disk` and restart.
@@ -61,8 +65,10 @@ The run opens in the Run window with a live pass/fail tree.
   <img src="docs/screenshots/test-tree-failure.png" alt="Test tree showing a failed assertion with the Click to see difference link" width="760">
 </p>
 
-**3. That's it.** Right-click a file → **Run Node Tests** runs the whole file; the run
-configuration is saved automatically and can be edited afterwards.
+**3. That's it.** Click the arrow beside a `describe` to run that whole suite, or beside an `it` to
+run the single test; right-click the arrow for **Debug**. Right-click anywhere in the file →
+**Run '<file>.test.js'** runs the lot. Each run configuration is named after the `describe` chain it
+came from — `UserService > login > returns a token` — and can be edited afterwards.
 
 Only if something needs pointing at: add a Node.js SDK under
 `File → Project Structure → SDKs → + → Node.js`, then pick it in `Settings → NodeSpark`.

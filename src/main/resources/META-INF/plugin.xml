@@ -4,7 +4,8 @@
     <vendor email="tanvoid0@gmail.com" url="https://tanvoid0.com">NodeSpark</vendor>
 
     <description><![CDATA[
-        Node.js support for IntelliJ IDEA Community.<br/>
+        JavaScript and TypeScript test runner for IntelliJ IDEA Community &mdash; no WebStorm
+        licence needed.<br/>
         Runs Jest, Vitest, Mocha and <code>node --test</code> with a real pass/fail test tree,
         gutter run icons, package.json script running, a CDP debugger, ESLint/Prettier and
         lcov coverage.<br/><br/>
@@ -14,6 +15,21 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.3.0</b>
+        <ul>
+          <li>Gutter run/debug icons no longer depend on a JavaScript PSI, so they finally appear in
+              IntelliJ IDEA Community, where <code>.js</code> is owned by TextMate. They also update
+              as you type and turn into a tick or a cross when a run finishes.</li>
+          <li>Run configurations are named after the whole <code>describe</code> chain
+              (<code>UserService &gt; login &gt; returns a token</code>) rather than
+              "Run Node Tests", and a gutter arrow on a <code>describe</code> runs that suite.</li>
+          <li>Removed the duplicate "Run Node Tests" context-menu entry: the ordinary
+              <b>Run '&lt;file&gt;'</b> item does the same thing.</li>
+          <li><b>Settings &rarr; NodeSpark</b> now detects the Node.js and npm executables, has a
+              file chooser and a <b>Detect</b> button for each, and an absolute path entered there
+              overrides both the SDK and PATH.</li>
+        </ul>
+
         <b>0.2.0</b>
         <ul>
           <li>Reformat Code (Ctrl+Alt+L) now runs the project's own Prettier on
@@ -60,10 +76,9 @@
         <runConfigurationProducer
             implementation="com.nodespark.run.NodeTestRunConfigurationProducer"/>
 
-        <!-- Gutter play icons -->
-        <codeInsight.lineMarkerProvider
-            language="any"
-            implementationClass="com.nodespark.gutter.NodeTestLineMarkerProvider"/>
+        <!-- Gutter play icons. Not a lineMarkerProvider: Community has no JavaScript PSI, so a
+             daemon pass never reaches a .js file there and no marker was ever produced. -->
+        <editorFactoryListener implementation="com.nodespark.gutter.NodeTestGutterMarkup"/>
 
         <!-- Settings page -->
         <applicationConfigurable
@@ -169,14 +184,6 @@
     </applicationListeners>
 
     <actions>
-        <action id="NodeSpark.RunTestFile"
-                class="com.nodespark.actions.RunTestFileAction"
-                text="Run Node Tests"
-                description="Run all tests in this file with Node.js test runner"
-                icon="/icons/node-spark-run.svg">
-            <add-to-group group-id="EditorPopupMenu.Run" anchor="first"/>
-        </action>
-
         <action id="NodeSpark.Prettier"
                 class="com.nodespark.lint.PrettierFormatAction"
                 text="Reformat with Prettier"

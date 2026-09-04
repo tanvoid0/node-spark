@@ -18,6 +18,10 @@ object NodeCommandLine {
      */
     @JvmOverloads
     fun resolveBin(project: Project, workDir: String, binName: String, contextFile: String? = null): String {
+        // 0. an absolute path typed into Settings -> NodeSpark wins over anything auto-detected:
+        // it is the only thing the user asked for explicitly.
+        configured(binName)?.let { return it }
+
         // 1. local node_modules/.bin (highest priority — respects project's pinned version)
         val localBinWin = File(workDir, "node_modules/.bin/$binName.cmd")
         val localBin = File(workDir, "node_modules/.bin/$binName")
@@ -50,10 +54,25 @@ object NodeCommandLine {
     /** node executable: SDK first, then the configured nodePath, then bare "node" on PATH. */
     @JvmOverloads
     fun nodeExecutable(project: Project, contextFile: String? = null): String {
+        configured("node")?.let { return it }
         val sdk = NodeProjectSdkService.getInstance(project).resolvedSdk(contextFile)
         if (sdk != null) return NodeJsSdkType.getInstance().getNodeExecutable(sdk)
-        val configured = NodeSparkSettings.instance.nodePath
-        return onPath(if (configured.isNotBlank()) configured else "node")
+        return onPath(NodeSparkSettings.instance.nodePath.ifBlank { "node" })
+    }
+
+    /**
+     * The Settings -> NodeSpark path for [binName], when it is an absolute path to a real file.
+     * A bare name there ("node", the old default) is not an override — it says nothing that PATH
+     * lookup does not already say — so it falls through to detection.
+     */
+    private fun configured(binName: String): String? {
+        val settings = NodeSparkSettings.instance
+        val path = when (binName) {
+            "node" -> settings.nodePath
+            "npm" -> settings.npmPath
+            else -> return null
+        }
+        return path.takeIf { it.isNotBlank() && File(it).isAbsolute && File(it).isFile }
     }
 
     /** Parses the comma-separated `KEY=VAL,KEY2=VAL2` form used by the settings and run-config fields. */

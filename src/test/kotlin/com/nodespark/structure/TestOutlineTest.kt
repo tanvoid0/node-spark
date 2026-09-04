@@ -99,4 +99,65 @@ class TestOutlineTest {
 
     private fun flatten(nodes: List<OutlineNode>): List<OutlineNode> =
         nodes.flatMap { listOf(it) + flatten(it.children) }
+
+    @Test
+    fun `pathAt gives the describe chain enclosing an offset`() {
+        val text = """
+            describe('UserService', () => {
+              describe('login', () => {
+                it('returns a token', () => {
+                  const x = 1;
+                });
+              });
+            });
+
+            describe('other', () => {
+              it('unrelated', () => {});
+            });
+        """.trimIndent()
+
+        val inside = text.indexOf("const x = 1")
+        assertEquals(
+            listOf("UserService", "login", "returns a token"),
+            TestOutline.pathAt(text, inside).map { it.name },
+        )
+
+        val onSecondRoot = text.indexOf("it('unrelated'")
+        assertEquals(
+            listOf("other", "unrelated"),
+            TestOutline.pathAt(text, onSecondRoot).map { it.name },
+        )
+
+        // Between the two roots: outside every block, so no chain at all.
+        val between = text.indexOf("describe('other'") - 1
+        assertEquals(emptyList<String>(), TestOutline.pathAt(text, between).map { it.name })
+    }
+
+    @Test
+    fun `pathAt is bounded by the call, not by the first brace`() {
+        // An expression-bodied callback opens no brace at all, and an options object opens one that
+        // is not the body — both used to swallow everything after the test.
+        val text = """
+            describe('s', () => {
+              it('a', () => expect(1).toBe(1));
+              const helper = 1;
+              test('b', { concurrent: true }, () => {
+                const z = 1;
+              });
+            });
+        """.trimIndent()
+
+        assertEquals(
+            listOf("s"),
+            TestOutline.pathAt(text, text.indexOf("const helper")).map { it.name },
+        )
+        assertEquals(
+            listOf("s", "b"),
+            TestOutline.pathAt(text, text.indexOf("const z")).map { it.name },
+        )
+        assertEquals(
+            listOf("s", "a"),
+            TestOutline.pathAt(text, text.indexOf("expect(1)")).map { it.name },
+        )
+    }
 }

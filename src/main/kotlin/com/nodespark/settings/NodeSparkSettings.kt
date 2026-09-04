@@ -9,8 +9,9 @@ import com.intellij.openapi.components.Storage
 class NodeSparkSettings : PersistentStateComponent<NodeSparkSettings.State> {
 
     data class State(
-        var nodePath: String = "node",
-        var npmPath: String = "npm",
+        // Empty means "detect": PATH, then the SDK's bin dir. An absolute path here overrides both.
+        var nodePath: String = "",
+        var npmPath: String = "",
         var defaultEnvVars: String = "NODE_ENV=test",
         var autoDetectRunner: Boolean = true,
         var runnerOverride: String = "",  // empty = auto-detect

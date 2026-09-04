@@ -3,8 +3,11 @@ package com.nodespark.run
 import com.intellij.execution.actions.ConfigurationContext
 import com.intellij.execution.actions.LazyRunConfigurationProducer
 import com.intellij.execution.configurations.ConfigurationFactory
+import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.util.Ref
 import com.intellij.psi.PsiElement
+import com.nodespark.structure.TestKind
+import com.nodespark.structure.TestOutline
 import com.nodespark.util.NodeTestDetector
 
 class NodeTestRunConfigurationProducer : LazyRunConfigurationProducer<NodeTestRunConfiguration>() {
@@ -23,19 +26,19 @@ class NodeTestRunConfigurationProducer : LazyRunConfigurationProducer<NodeTestRu
         val project = context.project
         configuration.testFilePath = file.path
         configuration.workingDir = project.basePath ?: ""
-        configuration.name = file.nameWithoutExtension
+        configuration.name = file.name
 
-        // Check if cursor is inside a specific test block
-        val psiFile = context.location?.psiElement?.containingFile
-        val editor = com.intellij.openapi.editor.ex.EditorEx::class.java.let {
-            com.intellij.openapi.actionSystem.CommonDataKeys.EDITOR.getData(context.dataContext)
-        }
-        if (psiFile != null && editor != null) {
-            val offset = editor.caretModel.offset
-            val testName = findTestNameAtOffset(psiFile.text, offset)
-            if (testName != null) {
-                configuration.testNameFilter = testName
-                configuration.name = testName
+        // Name the configuration after the whole describe chain the caret sits in — "UserService >
+        // login > returns a token" rather than the bare leaf, which is often just "works".
+        val editor = CommonDataKeys.EDITOR.getData(context.dataContext)
+        if (editor != null) {
+            val path = TestOutline.pathAt(editor.document.immutableCharSequence, editor.caretModel.offset)
+            val leaf = path.lastOrNull()
+            if (leaf != null) {
+                configuration.testNameFilter = leaf.name
+                configuration.suiteFilter = leaf.kind == TestKind.DESCRIBE
+                configuration.testNamePath = path.map { it.name }
+                configuration.name = path.joinToString(" > ") { it.name }
             }
         }
 
@@ -47,22 +50,12 @@ class NodeTestRunConfigurationProducer : LazyRunConfigurationProducer<NodeTestRu
         context: ConfigurationContext,
     ): Boolean {
         val file = context.location?.virtualFile ?: return false
-        return configuration.testFilePath == file.path
-    }
-
-    private fun findTestNameAtOffset(text: String, offset: Int): String? {
-        val matcher = NodeTestDetector.TEST_FUNCTION_PATTERN.matcher(text)
-        var lastMatch: String? = null
-        var lastStart = -1
-
-        while (matcher.find()) {
-            if (matcher.start() <= offset) {
-                lastMatch = matcher.group(5) // captured test name
-                lastStart = matcher.start()
-            } else {
-                break
-            }
-        }
-        return lastMatch
+        if (configuration.testFilePath != file.path) return false
+        val editor = CommonDataKeys.EDITOR.getData(context.dataContext) ?: return configuration.testNameFilter.isEmpty()
+        // The whole chain, not just the leaf: `describe('add', () => it('add', ...))` has the same
+        // leaf name at two levels, and reusing the suite's configuration for the test would run it
+        // unanchored.
+        val path = TestOutline.pathAt(editor.document.immutableCharSequence, editor.caretModel.offset)
+        return configuration.testNamePath == path.map { it.name }
     }
 }

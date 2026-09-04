@@ -12,6 +12,8 @@ data class OutlineNode(
     val offset: Int,
     val modifier: TestModifier,
     val children: List<OutlineNode>,
+    /** Offset just past this block's closing brace; end of file when the callback has no body. */
+    val endOffset: Int = offset,
 )
 
 /**
@@ -63,10 +65,39 @@ object TestOutline {
             while (stack.isNotEmpty() && stack[stack.size - 1].depth >= node.depth) {
                 stack.removeAt(stack.size - 1)
             }
+            node.end = endOf(scan, m.start(3))
             (if (stack.isEmpty()) roots else stack[stack.size - 1].children).add(node)
             stack.add(node)
         }
         return roots.map { it.build() }
+    }
+
+    /**
+     * The describe/it chain enclosing [offset], outermost first: ["UserService", "login",
+     * "returns a token"]. Empty when the offset is not inside any test block.
+     */
+    fun pathAt(text: CharSequence, offset: Int): List<OutlineNode> = pathIn(parse(text), offset)
+
+    fun pathIn(nodes: List<OutlineNode>, offset: Int): List<OutlineNode> {
+        val node = nodes.lastOrNull { offset in it.offset until it.endOffset.coerceAtLeast(it.offset + 1) }
+            ?: return emptyList()
+        return listOf(node) + pathIn(node.children, offset)
+    }
+
+    /**
+     * End of the whole `describe(...)` call: the offset just past the `)` that closes the call
+     * whose argument list opens immediately before the name string at [nameQuote].
+     *
+     * Brace depth is the wrong thing to follow here. `it('a', () => expect(1).toBe(1))` has no body
+     * braces at all, and `test('a', { concurrent: true }, fn)` opens its first brace on an options
+     * object rather than on the callback — both mis-measure a block, and pathAt then attributes the
+     * wrong test to the caret. The call's own parentheses bound it exactly, in every form.
+     */
+    private fun endOf(scan: Scan, nameQuote: Int): Int {
+        var open = nameQuote - 1
+        while (open >= 0 && scan.text[open].isWhitespace()) open--
+        if (open < 0 || scan.text[open] != '(') return nameQuote
+        return scan.closeOf[open].takeIf { it >= 0 } ?: scan.depth.size
     }
 
     private fun modifierOf(chain: String): TestModifier {
@@ -80,7 +111,17 @@ object TestOutline {
         return TestModifier.NONE
     }
 
-    private class Scan(val depth: IntArray, val code: BooleanArray)
+    /**
+     * @param depth brace depth at each offset
+     * @param code true where the offset is real code, not a comment or a string literal
+     * @param closeOf for each `(` offset, the offset just past its matching `)`; -1 elsewhere
+     */
+    private class Scan(
+        val text: CharSequence,
+        val depth: IntArray,
+        val code: BooleanArray,
+        val closeOf: IntArray,
+    )
 
     /**
      * One left-to-right pass recording, per offset, the enclosing brace depth and whether that
@@ -91,6 +132,8 @@ object TestOutline {
         val n = t.length
         val depth = IntArray(n)
         val code = BooleanArray(n)
+        val closeOf = IntArray(n) { -1 }
+        val openParens = ArrayList<Int>()     // offsets of unclosed `(`
         val templateDepths = ArrayList<Int>() // brace depth at each open `${`
         var d = 0
         var mode = NORMAL
@@ -106,6 +149,10 @@ object TestOutline {
                     c == '\'' -> mode = SINGLE
                     c == '"' -> mode = DOUBLE
                     c == '`' -> mode = TEMPLATE
+                    c == '(' -> openParens.add(i)
+                    c == ')' -> if (openParens.isNotEmpty()) {
+                        closeOf[openParens.removeAt(openParens.size - 1)] = i + 1
+                    }
                     c == '{' -> d++
                     c == '}' ->
                         if (templateDepths.isNotEmpty() && templateDepths[templateDepths.size - 1] == d) {
@@ -135,7 +182,7 @@ object TestOutline {
             }
             i++
         }
-        return Scan(depth, code)
+        return Scan(t, depth, code, closeOf)
     }
 
     private const val NORMAL = 0
@@ -154,5 +201,8 @@ private class Builder(
     val depth: Int,
     val children: MutableList<Builder> = ArrayList(),
 ) {
-    fun build(): OutlineNode = OutlineNode(kind, name, offset, modifier, children.map { it.build() })
+    var end: Int = offset
+
+    fun build(): OutlineNode =
+        OutlineNode(kind, name, offset, modifier, children.map { it.build() }, end)
 }

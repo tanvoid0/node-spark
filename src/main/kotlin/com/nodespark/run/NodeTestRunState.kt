@@ -147,11 +147,21 @@ class NodeTestRunState(
         val name = config.testNameFilter
         if (name.isBlank()) return
         val escaped = escapeForJsRegex(name)
+        // jest and mocha match the full "suite ... test" name, so the whole describe chain goes into
+        // the pattern when it is known: "login" alone would also match "auth > login fails".
+        // A suite name is a prefix of that full name, so it takes no trailing anchor.
+        val end = if (config.suiteFilter) "" else "$"
+        val chain = if (config.testNamePath.size > 1) {
+            "^" + config.testNamePath.joinToString(".*") { escapeForJsRegex(it) }
+        } else {
+            escaped
+        }
         when (runner) {
             // Trailing anchor only: enough to stop "adds" also running "adds negatives".
-            TestRunner.JEST -> cmd.addParameter("--testNamePattern=$escaped$")
-            TestRunner.MOCHA -> cmd.addParameter("--grep=$escaped$")
+            TestRunner.JEST -> cmd.addParameter("--testNamePattern=$chain$end")
+            TestRunner.MOCHA -> cmd.addParameter("--grep=$chain$end")
             TestRunner.VITEST -> cmd.addParameters("-t", name)
+            // node:test matches each level's own name, so a suite name is anchored like any other.
             TestRunner.NODE_TEST -> cmd.addParameter("--test-name-pattern=^$escaped$")
         }
     }

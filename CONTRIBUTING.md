@@ -116,6 +116,11 @@ the WSL launcher, not Git Bash.
 ./gradlew -PideVariant=262 publishPlugin
 ```
 
+Do not run a signing or publishing task with `--info` or `--debug`: Gradle logs the signer's whole
+command line at that level, and the key passphrase is one of its arguments. If it happens, rotate
+the passphrase with `openssl pkey -in secrets/private.pem -passin pass:OLD -aes-256-cbc -passout
+pass:NEW -out secrets/private.new.pem` and update `.env`.
+
 A plugin that has never been on the Marketplace cannot be created through the API: upload the first
 zip by hand at <https://plugins.jetbrains.com/plugin/add>, after which `publishPlugin` handles
 updates. `runIde` must not be running during a build — its sandbox holds files that

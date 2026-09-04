@@ -116,6 +116,12 @@ if (is262) {
     }
 }
 
+// Upload the signed artifact, explicitly: the default picked the plain zip, and an unsigned upload
+// is accepted by the Marketplace without complaint, so the mistake is silent.
+tasks.publishPlugin {
+    archiveFile = tasks.signPlugin.flatMap { it.signedArchiveFile }
+}
+
 // One check before a release: are the secrets there at all? Names and presence only - a value is
 // never printed, so this is safe to run with output shared.
 tasks.register("releaseCheck") {

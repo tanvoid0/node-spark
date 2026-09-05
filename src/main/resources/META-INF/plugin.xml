@@ -18,7 +18,7 @@
     <category>Test Tools</category>
 
     <change-notes><![CDATA[
-        <b>0.4.0</b>
+        <b>0.5.0</b>
         <ul>
           <li>A <b>Package</b> tab beside the text editor of a <code>package.json</code>: the manifest
               fields as a form, the scripts as a grid you can run and debug from, and the dependencies
@@ -46,6 +46,10 @@
               a dependency opens its installed <code>package.json</code>.</li>
           <li><b>Settings &rarr; NodeSpark &rarr; Node.js SDK</b> takes a package manager, so a project
               whose lockfile says otherwise can be pinned to npm, yarn, pnpm or bun.</li>
+        </ul>
+
+        <b>0.4.0</b>
+        <ul>
           <li>A key/value grid editor beside the text editor of any <code>.env</code> file, with a
               per-row "Hide value" mask, a value dropdown sourced from the row's own documenting
               comment and sibling <code>.env</code> files, and a right-click menu to copy one field

@@ -74,7 +74,7 @@ how to reproduce it.
 1. Fork and branch: `git checkout -b fix/describe-block-detection`
 2. Make the change
 3. `./gradlew test && ./gradlew buildPlugin` — must pass
-4. Open a PR against `master` describing what changed and why
+4. Open a PR against `main` describing what changed and why
 
 ## Reporting issues
 

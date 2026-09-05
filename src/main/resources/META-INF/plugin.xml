@@ -9,7 +9,7 @@
         needed.<br/>
         Runs Jest, Vitest, Mocha and <code>node --test</code> with a real pass/fail test tree,
         gutter run icons, <code>package.json</code> script running, a CDP debugger, ESLint/Prettier,
-        lcov coverage, and a key/value grid editor for <code>.env</code> files.<br/><br/>
+        Run with Coverage, and a key/value grid editor for <code>.env</code> files.<br/><br/>
         Everything runs against the tools the project already installs in its own
         <code>node_modules</code> &mdash; nothing is downloaded and nothing is installed into your
         project. Tools are only executed in projects you have marked as trusted.
@@ -18,6 +18,36 @@
     <category>Test Tools</category>
 
     <change-notes><![CDATA[
+        <b>0.5.0</b>
+        <ul>
+          <li>A <b>Package</b> tab beside the text editor of a <code>package.json</code>: the manifest
+              fields as a form, the scripts as a grid you can run and debug from, and the dependencies
+              as a filterable table showing what is declared, what is installed and &mdash; on request
+              &mdash; what the registry has newer. Add a package by searching the registry, remove or
+              update one, and move it between runtime and development, all through the project's own
+              package manager so the lockfile keeps up.</li>
+          <li>NodeSpark now checks <code>package.json</code>, the lockfile and <code>node_modules</code>
+              against each other, for npm, yarn (classic and berry), pnpm and bun. A banner offers the
+              install that fixes the drift &mdash; a plain install when the lockfile is behind
+              package.json, a frozen one (<code>npm ci</code> and its equivalents) when only
+              node_modules is behind the lockfile.</li>
+          <li>Coverage is now the IDE's own: a <b>Run with Coverage</b> button beside Run and Debug
+              on a Node test configuration, covered/uncovered stripes in the editor gutter, and
+              per-file and per-directory percentages in the Coverage tool window and the Project
+              view. Jest, Vitest, Mocha (via <code>nyc</code>) and <code>node --test</code>. A report
+              from elsewhere &mdash; a CI run, say &mdash; still loads through
+              <b>Tools &rarr; Node Coverage</b>, which also runs the whole suite at once.</li>
+          <li>Clicking a gutter arrow now opens the same menu as right-clicking it, with
+              <b>Run</b>, <b>Debug</b> and <b>Run with Coverage</b>, instead of starting a plain run
+              straight away.</li>
+          <li>An <b>npm</b> tool window listing every <code>package.json</code> in the project with
+              its scripts beneath it &mdash; double-click (or Enter) runs one, and each package shows
+              the manager it actually uses: npm, yarn, pnpm or bun. Scripts also debug from there, and
+              a dependency opens its installed <code>package.json</code>.</li>
+          <li><b>Settings &rarr; NodeSpark &rarr; Node.js SDK</b> takes a package manager, so a project
+              whose lockfile says otherwise can be pinned to npm, yarn, pnpm or bun.</li>
+        </ul>
+
         <b>0.4.0</b>
         <ul>
           <li>A key/value grid editor beside the text editor of any <code>.env</code> file, with a
@@ -71,6 +101,9 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.lang</depends>
+    <!-- The IDE's own coverage machinery: the Run with Coverage executor, the Coverage tool window
+         and the gutter stripes. Bundled in every IntelliJ IDEA, Community included. -->
+    <depends>com.intellij.modules.coverage</depends>
 
     <!-- Optional: the Java plugin owns the projectImportProvider extension point.
          Without it the plugin still loads, minus the package.json import path. -->
@@ -94,6 +127,11 @@
 
         <!-- Line breakpoint type for JS files — enables the gutter and feeds NodeDebugProcess's handler -->
         <xdebugger.breakpointType implementation="com.nodespark.debug.NodeLineBreakpointType"/>
+
+        <!-- Native coverage: Run with Coverage on a Node test configuration, per-file percentages
+             in the Coverage tool window, and lcov.info read back through LcovParser. -->
+        <coverageEngine implementation="com.nodespark.coverage.NodeCoverageEngine"/>
+        <coverageRunner implementation="com.nodespark.coverage.NodeCoverageRunner"/>
 
         <!-- Right-click → Run producer -->
         <runConfigurationProducer
@@ -146,10 +184,17 @@
         <!-- package.json scripts: gutter icon + run configuration -->
         <configurationType implementation="com.nodespark.npm.NpmScriptRunConfigurationType"/>
         <programRunner implementation="com.nodespark.npm.NpmScriptProgramRunner"/>
+        <programRunner implementation="com.nodespark.npm.NpmScriptDebugProgramRunner"/>
         <runConfigurationProducer implementation="com.nodespark.npm.NpmScriptRunConfigurationProducer"/>
         <codeInsight.lineMarkerProvider
             language="any"
             implementationClass="com.nodespark.npm.NpmScriptLineMarkerProvider"/>
+
+        <!-- "npm" tool window: package.json tree, double-click a script to run it -->
+        <toolWindow id="npm"
+                    anchor="right"
+                    icon="AllIcons.Nodes.Console"
+                    factoryClass="com.nodespark.npm.NpmToolWindowFactory"/>
 
         <!-- Prettier as the Reformat Code (Ctrl+Alt+L) implementation for JS/TS -->
         <formattingService implementation="com.nodespark.lint.PrettierFormattingService"/>
@@ -192,6 +237,9 @@
                                 implementationClass="com.nodespark.env.EnvCompletionContributor"/>
         <annotator language="DotEnv" implementationClass="com.nodespark.env.EnvDuplicateKeyAnnotator"/>
         <fileEditorProvider implementation="com.nodespark.env.EnvTableEditorProvider"/>
+
+        <!-- "Package" tab beside the text editor of package.json -->
+        <fileEditorProvider implementation="com.nodespark.npm.PackageJsonEditorProvider"/>
         <editorNotificationProvider implementation="com.nodespark.env.EnvTemplateNotificationProvider"/>
 
         <!-- describe/it outline in the Structure tool window -->
@@ -222,17 +270,16 @@
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
         </action>
 
+        <!-- Whole-project coverage, and loading a report from elsewhere. Both hand the result to
+             the IDE's coverage view; hiding it again is the platform's own Hide Coverage. -->
         <group id="NodeSpark.Coverage" text="Node Coverage" popup="true">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
             <action id="NodeSpark.RunTestsWithCoverage"
                     class="com.nodespark.coverage.RunTestsWithCoverageAction"
-                    text="Run Tests with Coverage"/>
+                    text="Run All Tests with Coverage"/>
             <action id="NodeSpark.ShowCoverage"
                     class="com.nodespark.coverage.ShowNodeCoverageAction"
                     text="Show Coverage from lcov.info"/>
-            <action id="NodeSpark.HideCoverage"
-                    class="com.nodespark.coverage.HideNodeCoverageAction"
-                    text="Hide Coverage"/>
         </group>
     </actions>
 </idea-plugin>

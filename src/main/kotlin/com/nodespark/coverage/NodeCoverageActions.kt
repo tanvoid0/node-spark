@@ -1,5 +1,7 @@
 package com.nodespark.coverage
 
+import com.intellij.coverage.CoverageDataManager
+import com.intellij.coverage.CoverageSuitesBundle
 import com.intellij.execution.executors.DefaultRunExecutor
 import com.intellij.execution.filters.TextConsoleBuilderFactory
 import com.intellij.execution.process.KillableColoredProcessHandler
@@ -14,6 +16,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooser
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.DumbAwareAction
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.nodespark.icons.NodeSparkIcons
 import com.nodespark.util.NodeCommandLine
@@ -23,7 +26,14 @@ import java.io.File
 
 private const val LCOV_RELATIVE = "coverage/lcov.info"
 
-/** Loads coverage/lcov.info (or a file the user picks) and paints the gutters. */
+/** Hands an lcov file to the IDE's coverage machinery — gutters, tool window and all. */
+internal fun showCoverage(project: Project, lcov: File) {
+    val manager = CoverageDataManager.getInstance(project)
+    val suite = manager.addExternalCoverageSuite(lcov, NodeCoverageRunner.instance) ?: return
+    manager.chooseSuitesBundle(CoverageSuitesBundle(suite))
+}
+
+/** Loads coverage/lcov.info (or a file the user picks) — for a report a CI run produced. */
 class ShowNodeCoverageAction : DumbAwareAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -37,25 +47,15 @@ class ShowNodeCoverageAction : DumbAwareAction() {
             ) ?: return
             File(chosen.path)
         }
-        NodeCoverageService.getInstance(project).load(lcov)
+        showCoverage(project, lcov)
     }
 }
 
-/** Removes every coverage stripe. */
-class HideNodeCoverageAction : DumbAwareAction() {
-
-    override fun getActionUpdateThread() = ActionUpdateThread.BGT
-
-    override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = e.project?.let { NodeCoverageService.getInstance(it).isActive } == true
-    }
-
-    override fun actionPerformed(e: AnActionEvent) {
-        NodeCoverageService.getInstance(e.project ?: return).clear()
-    }
-}
-
-/** Runs the detected test runner with its coverage flag, then auto-loads the lcov it wrote. */
+/**
+ * Runs the whole suite with the detected runner's coverage flag and shows what it wrote. The
+ * per-configuration Run with Coverage button covers one test file; this covers the project, which
+ * a Node test configuration cannot express (it always names a file).
+ */
 class RunTestsWithCoverageAction : DumbAwareAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -109,7 +109,7 @@ class RunTestsWithCoverageAction : DumbAwareAction() {
                 val lcov = File(root, LCOV_RELATIVE)
                 ApplicationManager.getApplication().invokeLater {
                     if (project.isDisposed) return@invokeLater
-                    if (event.exitCode == 0 && lcov.isFile) NodeCoverageService.getInstance(project).load(lcov)
+                    if (event.exitCode == 0 && lcov.isFile) showCoverage(project, lcov)
                     else Messages.showWarningDialog(project, "No ${lcov.path} was produced (exit ${event.exitCode}).", "NodeSpark")
                 }
             }

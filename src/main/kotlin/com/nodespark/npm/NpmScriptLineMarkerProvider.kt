@@ -2,10 +2,6 @@ package com.nodespark.npm
 
 import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProvider
-import com.intellij.execution.ExecutorRegistry
-import com.intellij.execution.RunManager
-import com.intellij.execution.executors.DefaultRunExecutor
-import com.intellij.execution.runners.ExecutionUtil
 import com.intellij.json.psi.JsonProperty
 import com.intellij.json.psi.JsonStringLiteral
 import com.intellij.openapi.editor.markup.GutterIconRenderer
@@ -36,19 +32,6 @@ class NpmScriptLineMarkerProvider : LineMarkerProvider {
         )
     }
 
-    private fun runScript(element: PsiElement, packageJsonPath: String, script: String) {
-        val project = element.project
-        val runManager = RunManager.getInstance(project)
-        val settings = runManager.createConfiguration(script, NpmScriptConfigurationUtil.getType().factory)
-        val config = settings.configuration as NpmScriptRunConfiguration
-        config.packageJsonPath = packageJsonPath
-        config.scriptName = script
-        config.workingDir = java.io.File(packageJsonPath).parent ?: (project.basePath ?: "")
-        runManager.addConfiguration(settings)
-        runManager.selectedConfiguration = settings
-
-        val executor = ExecutorRegistry.getInstance()
-            .getExecutorById(DefaultRunExecutor.EXECUTOR_ID) ?: return
-        ExecutionUtil.runConfiguration(settings, executor)
-    }
+    private fun runScript(element: PsiElement, packageJsonPath: String, script: String) =
+        NpmScriptRunner.run(element.project, packageJsonPath, script)
 }

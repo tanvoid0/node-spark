@@ -28,7 +28,8 @@ Save as PNG, at the filename below, in this directory.
 | `test-tree-failure.png` | A failed assertion in the tree with the *Click to see difference* link | Temporarily break one expectation in `math.test.js`, run the file, shoot the Run window (revert the edit afterwards) |
 | `debugger.png` | Stopped on a breakpoint: frames, variables, the highlighted line | Breakpoint inside a test in `math.test.js`, debug from the gutter |
 | `npm-scripts.png` | ▶ beside each entry of `"scripts"` | Open `demo/package.json`, crop to the scripts block with the gutter |
-| `coverage.png` | Green/red coverage stripes in the gutter | **Tools → Node Coverage → Run Tests with Coverage**, then open `demo/src/math.js` |
+| `coverage.png` | Green/red stripes in the gutter, percentages in the Coverage tool window and Project view | Gutter arrow → **Run with Coverage** on `demo/src/math.test.js`, then open `demo/src/math.js` |
+| `coverage-gutter-menu.png` | The gutter arrow menu: Run, Debug, Run with Coverage | Click (not right-click) an arrow in `demo/src/math.test.js` |
 | `env-editor.png` | The `.env` key/value grid tab | Open `demo/.env`, switch to the table tab |
 | `settings.png` | The NodeSpark settings page | `Settings → Tools → NodeSpark`, crop to the panel |
 

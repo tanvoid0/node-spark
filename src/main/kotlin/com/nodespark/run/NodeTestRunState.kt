@@ -1,5 +1,7 @@
 package com.nodespark.run
 
+import com.intellij.coverage.CoverageExecutor
+import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.CommandLineState
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.KillableColoredProcessHandler
@@ -10,6 +12,7 @@ import com.intellij.execution.testframework.sm.SMTestRunnerConnectionUtil
 import com.intellij.execution.testframework.sm.runner.ui.SMTRunnerConsoleView
 import com.intellij.execution.ui.ConsoleView
 import com.intellij.openapi.project.Project
+import com.nodespark.coverage.NodeCoverageEnabledConfiguration
 import com.nodespark.settings.NodeSparkSettings
 import com.nodespark.testtree.NodeTestConsoleProperties
 import com.nodespark.testtree.recordResultsInto
@@ -41,6 +44,10 @@ class NodeTestRunState(
         }
     }
 
+    /** The lcov this run must write, when it was started with Run with Coverage. */
+    private val coverageReport: File? =
+        if (env.executor.id == CoverageExecutor.EXECUTOR_ID) NodeCoverageEnabledConfiguration.reportFile(config) else null
+
     // CommandLineState.execute() calls startProcess() then createConsole() then wires them.
     // We override both; do NOT override execute() — that caused premature startNotify().
     public override fun startProcess(): ProcessHandler {
@@ -62,6 +69,10 @@ class NodeTestRunState(
     }
 
     private fun buildCommandLine(): GeneralCommandLine {
+        // A run that writes nothing must not leave the previous run's report to be loaded as if it
+        // were this one's, and node will not create the destination directory itself.
+        coverageReport?.let { it.parentFile.mkdirs(); it.delete() }
+
         val cmd = NodeCommandLine.base(project, workDir, NodeCommandLine.parseEnvVars(config.envVars))
         cmd.exePath = NodeCommandLine.nodeExecutable(project, config.testFilePath)
         if (debugPort > 0) cmd.addParameter("--inspect-brk=$debugPort")
@@ -78,12 +89,30 @@ class NodeTestRunState(
                     "--test-reporter-destination=stdout",
                 )
             }
+            // node pairs each --test-reporter with the --test-reporter-destination that follows it,
+            // so lcov is a second pair rather than a replacement for the tree reporter above.
+            coverageReport?.let {
+                cmd.addParameters(
+                    "--experimental-test-coverage",
+                    "--test-reporter=lcov",
+                    "--test-reporter-destination=${it.path}",
+                )
+            }
         } else {
             // Spawning the runner's own entry script rather than node_modules/.bin/<name>.cmd:
             // the Windows shim routes arguments through cmd.exe, which expands %FOO% inside a test
             // name pattern and eats ^ — see NodeRunnerEntry.
             val startDir = File(config.testFilePath).parentFile ?: File(workDir)
             val entry = NodeRunnerEntry.resolve(runner, startDir, File(workDir))
+            // mocha has no coverage of its own: nyc wraps it, so nyc and its flags go first and the
+            // mocha entry below becomes the command nyc runs. That only works with a real entry
+            // script — the .cmd fallback would put nyc's flags on mocha's own command line.
+            if (coverageReport != null && runner == TestRunner.MOCHA) {
+                val nyc = entry?.let { NodeRunnerEntry.resolveEntry(listOf("nyc"), "nyc", startDir, File(workDir)) }
+                    ?: throw ExecutionException("Mocha coverage needs nyc: npm install --save-dev nyc")
+                cmd.addParameter(nyc)
+                cmd.addParameters("--reporter=lcovonly", "--report-dir=${coverageReport.parent}")
+            }
             if (entry != null) {
                 cmd.addParameter(entry)
             } else {
@@ -96,11 +125,26 @@ class NodeTestRunState(
         when (runner) {
             TestRunner.JEST -> {
                 if (reporter != null) cmd.addParameter("--reporters=$reporter")
-                cmd.addParameter("--no-coverage")
+                if (coverageReport == null) {
+                    cmd.addParameter("--no-coverage")
+                } else {
+                    cmd.addParameters(
+                        "--coverage",
+                        "--coverageReporters=lcov",
+                        "--coverageDirectory=${coverageReport.parent}",
+                    )
+                }
             }
             TestRunner.VITEST -> {
                 cmd.addParameter("run")
                 if (reporter != null) cmd.addParameter("--reporter=$reporter")
+                coverageReport?.let {
+                    cmd.addParameters(
+                        "--coverage.enabled",
+                        "--coverage.reporter=lcov",
+                        "--coverage.reportsDirectory=${it.parent}",
+                    )
+                }
             }
             TestRunner.MOCHA -> if (reporter != null) cmd.addParameter("--reporter=$reporter")
             TestRunner.NODE_TEST -> {}

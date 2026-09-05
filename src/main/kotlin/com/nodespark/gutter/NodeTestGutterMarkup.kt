@@ -1,5 +1,6 @@
 package com.nodespark.gutter
 
+import com.intellij.coverage.CoverageExecutor
 import com.intellij.execution.ExecutorRegistry
 import com.intellij.execution.RunManager
 import com.intellij.execution.RunnerAndConfigurationSettings
@@ -199,7 +200,7 @@ private class TestGutterIcon(
 
     private val fullName: String get() = namePath.joinToString(" > ")
 
-    override fun getTooltipText() = "Run '$fullName'  |  right-click to debug"
+    override fun getTooltipText() = "Run '$fullName'  |  click for run, debug and coverage"
 
     override fun getAccessibleName() = "Run $fullName"
 
@@ -207,11 +208,14 @@ private class TestGutterIcon(
 
     override fun getAlignment() = Alignment.LEFT
 
-    override fun getClickAction(): AnAction = launch("Run '$fullName'", DefaultRunExecutor.EXECUTOR_ID)
+    // Null so that a left-click opens the same menu a right-click does, the way the JUnit gutter
+    // behaves: with three executors to choose from, running one of them unasked is the wrong default.
+    override fun getClickAction(): AnAction? = null
 
     override fun getPopupMenuActions(): ActionGroup = DefaultActionGroup(
         launch("Run '$fullName'", DefaultRunExecutor.EXECUTOR_ID),
         launch("Debug '$fullName'", DefaultDebugExecutor.EXECUTOR_ID),
+        launch("Run '$fullName' with Coverage", CoverageExecutor.EXECUTOR_ID),
     )
 
     private fun launch(text: String, executorId: String): AnAction {

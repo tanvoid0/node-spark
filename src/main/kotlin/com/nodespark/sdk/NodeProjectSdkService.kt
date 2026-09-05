@@ -8,13 +8,14 @@ import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.nodespark.util.NodePackageManager
 
 @Service(Service.Level.PROJECT)
 @State(name = "NodeProjectSdk", storages = [Storage("nodeSpark.xml")])
 class NodeProjectSdkService(private val project: Project) :
     PersistentStateComponent<NodeProjectSdkService.State> {
 
-    data class State(var sdkName: String = "")
+    data class State(var sdkName: String = "", var packageManager: String = "")
 
     private var state = State()
 
@@ -24,6 +25,16 @@ class NodeProjectSdkService(private val project: Project) :
     var sdkName: String
         get() = state.sdkName
         set(v) { state.sdkName = v }
+
+    /** Project-wide package manager override; blank (the default) means detect per directory. */
+    var packageManagerName: String
+        get() = state.packageManager
+        set(v) { state.packageManager = v }
+
+    /** The override if one is set, else what [dir] itself says (packageManager field, then lockfile). */
+    fun packageManagerFor(dir: String): NodePackageManager =
+        NodePackageManager.values().firstOrNull { it.binName == state.packageManager }
+            ?: NodePackageManager.detect(dir)
 
     /**
      * Resolves the Node.js SDK to use, most specific first:

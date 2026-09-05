@@ -30,11 +30,30 @@ enum class NodePackageManager(val binName: String) {
      * npm is the odd one out: `npm add` exists but the dev flag is spelled `--save-dev`, while the
      * other three take `add` with a short flag.
      */
-    fun addDevArgs(packages: List<String>): List<String> = when (this) {
-        NPM -> listOf("install", "--save-dev") + packages
-        YARN -> listOf("add", "--dev") + packages
-        PNPM -> listOf("add", "--save-dev") + packages
-        BUN -> listOf("add", "--dev") + packages
+    fun addDevArgs(packages: List<String>): List<String> = addArgs(packages, dev = true)
+
+    /** argv that adds [packages], as dev dependencies when [dev]. */
+    fun addArgs(packages: List<String>, dev: Boolean): List<String> = when (this) {
+        NPM -> listOf("install") + (if (dev) listOf("--save-dev") else emptyList()) + packages
+        YARN -> listOf("add") + (if (dev) listOf("--dev") else emptyList()) + packages
+        PNPM -> listOf("add") + (if (dev) listOf("--save-dev") else emptyList()) + packages
+        BUN -> listOf("add") + (if (dev) listOf("--dev") else emptyList()) + packages
+    }
+
+    /** argv that removes [packages] from package.json and the lockfile. */
+    fun removeArgs(packages: List<String>): List<String> =
+        listOf(if (this == NPM) "uninstall" else "remove") + packages
+
+    /**
+     * argv that installs strictly what the lockfile says, failing rather than rewriting it — the
+     * fix for node_modules having drifted from a lockfile that is itself correct.
+     * [berry] selects yarn 2+, which renamed the flag.
+     */
+    fun frozenInstallArgs(berry: Boolean = false): List<String> = when (this) {
+        NPM -> listOf("ci")
+        YARN -> if (berry) listOf("install", "--immutable") else listOf("install", "--frozen-lockfile")
+        PNPM -> listOf("install", "--frozen-lockfile")
+        BUN -> listOf("install", "--frozen-lockfile")
     }
 
     companion object {

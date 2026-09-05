@@ -10,7 +10,8 @@ import java.io.File
  */
 object NodeReporters {
 
-    private val FILES = listOf("tc.js", "jest.cjs", "vitest.mjs", "mocha.cjs", "node-test.mjs")
+    private val FILES =
+        listOf("tc.js", "jest.cjs", "vitest.mjs", "mocha.cjs", "node-test.mjs", "inspect-bootstrap.cjs")
 
     private val dir: File by lazy {
         val target = File(PathManager.getSystemPath(), "nodespark/reporters")
@@ -35,4 +36,11 @@ object NodeReporters {
         }
         return File(dir, name).takeIf { it.isFile }?.absolutePath
     }
+
+    /**
+     * Absolute path of the `--require` hook that opens the inspector in the first non-package-manager
+     * node process of a `npm run` tree. Null when it failed to unpack.
+     */
+    fun inspectBootstrap(): String? =
+        File(dir, "inspect-bootstrap.cjs").takeIf { it.isFile }?.absolutePath
 }

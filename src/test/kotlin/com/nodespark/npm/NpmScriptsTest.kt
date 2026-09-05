@@ -36,4 +36,26 @@ class NpmScriptsTest {
     @Test fun `non-object scripts value does not throw`() {
         assertTrue(NpmScripts.scriptsOf("""{"scripts": "build"}""").isEmpty())
     }
+
+    @Test fun `dependencies come before dev dependencies and carry the dev flag`() {
+        val json = """
+            { "name": "demo",
+              "dependencies": { "express": "^4.19.2" },
+              "devDependencies": { "jest": "^29" } }
+        """.trimIndent()
+        assertEquals(
+            listOf(
+                NpmScripts.Dependency("express", "^4.19.2", dev = false),
+                NpmScripts.Dependency("jest", "^29", dev = true),
+            ),
+            NpmScripts.dependenciesOf(json),
+        )
+        assertEquals("demo", NpmScripts.nameOf(json))
+    }
+
+    @Test fun `missing or malformed dependency sections are empty`() {
+        assertTrue(NpmScripts.dependenciesOf("""{"name":"demo"}""").isEmpty())
+        assertTrue(NpmScripts.dependenciesOf("not json").isEmpty())
+        assertNull(NpmScripts.nameOf("""{"version":"1.0.0"}"""))
+    }
 }

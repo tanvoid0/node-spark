@@ -40,6 +40,10 @@ version = (if (is262) "262." else "241.") + providers.gradleProperty("pluginVers
 
 kotlin {
     jvmToolchain(21)  // compile with Java 21 SDK
+
+    // One file differs between the two branches - the coverage engine's view-extension hook, whose
+    // signature 2026.2 changed. Everything else stays in src/main.
+    sourceSets["main"].kotlin.srcDir(if (is262) "src/variant262/kotlin" else "src/variant241/kotlin")
 }
 
 // 2024.1 bundles JBR 17 and rejects newer bytecode; 262 runs on JBR 21.
@@ -176,6 +180,20 @@ intellijPlatform {
             // The 241 build must stop at 261, where the test-tree classes move; 262 is open-ended.
             untilBuild = provider { if (is262) null else "261.*" }
         }
+    }
+
+    pluginVerification {
+        // The plugin's default is [COMPATIBILITY_PROBLEMS, INTERNAL_API_USAGES,
+        // OVERRIDE_ONLY_API_USAGES]; only the middle one is dropped, and only because both hits are
+        // unavoidable. CoverageEngine.getQualifiedName and coverageProjectViewStatisticsApplicableTo
+        // are @Internal from 242 on with no public replacement — without them a Node coverage engine
+        // paints no gutters and shows an empty tool window (see NodeCoverageEngine). The
+        // ToolWindowFactory ones are not written here at all: Kotlin generates delegating overrides
+        // of an interface's default methods, internal or not, for every implementing class.
+        failureLevel = listOf(
+            org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
+            org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask.FailureLevel.OVERRIDE_ONLY_API_USAGES,
+        )
     }
 
     // A PEM does not fit on one line, so the key and the chain are given as paths to files kept

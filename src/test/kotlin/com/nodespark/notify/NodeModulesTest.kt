@@ -52,4 +52,13 @@ class NodeModulesTest {
         val plain = tempRoot()
         assertNull(NodeModules.missingModulesRoot(File(plain, "script.js").absolutePath))
     }
+
+    @Test fun `the owning package is the nearest one, installed or not`() {
+        val repo = tempRoot().pkg().modules()
+        val pkgA = repo.child("packages/a").pkg()
+        val nested = repo.child("node_modules/left-pad").pkg()
+        assertEquals(pkgA.absolutePath, NodeModules.packageRoot(File(pkgA, "index.ts").absolutePath))
+        assertEquals(repo.absolutePath, NodeModules.packageRoot(File(repo, "index.ts").absolutePath))
+        assertNull(NodeModules.packageRoot(File(nested, "index.js").absolutePath))
+    }
 }

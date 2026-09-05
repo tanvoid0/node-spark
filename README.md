@@ -25,8 +25,11 @@ project.
 | 🌲 **A real test tree** | Nested suites, per-test timings, and *Click to see difference* on assertion failures. |
 | 🐞 **Debugger** | Breakpoints in test files and plain scripts, or attach to a running `node --inspect`. |
 | 📦 **package.json scripts** | A ▶ beside every script; npm / yarn / pnpm / bun detected automatically. |
+| 🧩 **Package tab** | A form for the manifest, a grid of scripts to run and debug, and a dependency table that adds, removes and updates through the project's own package manager. |
+| 🗂 **npm tool window** | Every `package.json` in the project with its scripts and dependencies beneath it. |
+| 🔄 **Dependency drift** | package.json, the lockfile and `node_modules` checked against each other, with a banner offering the install that fixes it. |
 | 🎨 **ESLint + Prettier** | Inline ESLint warnings; `Ctrl+Alt+L` formats with the project's own Prettier. |
-| 📊 **Coverage (basic)** | **Tools → Node Coverage** runs the suite and paints an `lcov.info` into the gutter as covered/uncovered stripes. Manual only — no native Run-with-Coverage button yet, [see known issues](docs/known-issues.md#coverage-is-manual-not-ide-native). |
+| 📊 **Coverage** | **Run with Coverage** on any Node test configuration: gutter stripes, per-file percentages in the Coverage tool window, and the IDE's own coverage menu. |
 | 🔑 **`.env` editor** | Highlighting, duplicate-key warnings, and a key/value grid beside the text. |
 | 💡 **Completion & imports** | Optional: drives the project's `typescript-language-server` over LSP. |
 | ⚙️ **Node.js SDK** | A real SDK type in Project Structure, auto-detected from PATH, nvm and fnm. |
@@ -66,7 +69,7 @@ The run opens in the Run window with a live pass/fail tree.
 </p>
 
 **3. That's it.** Click the arrow beside a `describe` to run that whole suite, or beside an `it` to
-run the single test; right-click the arrow for **Debug**. Right-click anywhere in the file →
+run the single test; the arrow's menu also holds **Debug** and **Run with Coverage**. Right-click anywhere in the file →
 **Run '<file>.test.js'** runs the lot. Each run configuration is named after the `describe` chain it
 came from — `UserService > login > returns a token` — and can be edited afterwards.
 
@@ -121,8 +124,29 @@ Node.js** run configuration pointing at the `node --inspect` port.
 </p>
 
 A ▶ appears beside every entry in `"scripts"`. The package manager comes from the `packageManager`
-field of package.json, else the lockfile (`npm` / `yarn` / `pnpm` / `bun`). A project with dependencies but no `node_modules` gets an
-editor banner offering to install them.
+field of package.json, else the lockfile (`npm` / `yarn` / `pnpm` / `bun`), unless
+**Settings → NodeSpark → Node.js SDK** pins one. A project with dependencies but no `node_modules`
+gets an editor banner offering to install them.
+
+The **npm** tool window lists every `package.json` in the project with its scripts and dependencies
+beneath it: double-click (or Enter) runs a script, the toolbar debugs it, and a dependency opens its
+installed `package.json`.
+
+### The Package tab
+
+Open a `package.json` and switch to **Package**, beside the text editor: the manifest fields as a
+form, the scripts as a grid you can run and debug from, and the dependencies as a filterable table
+of what is declared, what is installed and — on request — what the registry has newer. Adding,
+removing, updating and moving a package between runtime and development all run the project's own
+package manager, so the lockfile keeps up. Nothing contacts the registry until you ask it to.
+
+### Dependencies out of step
+
+package.json, the lockfile and `node_modules` are checked against each other — the state a `git
+pull` leaves behind, which nothing otherwise reports until something fails at runtime. The banner
+offers the install that fixes it: a plain install when the lockfile is behind package.json, a frozen
+one (`npm ci` and its equivalents) when only `node_modules` is behind the lockfile. npm, yarn
+(classic and berry), pnpm and bun.
 
 ### ESLint and Prettier
 
@@ -135,13 +159,25 @@ does anything in a project without its own ESLint or Prettier.
 
 ### Coverage
 
-**Tools → Node Coverage** — run the tests with coverage, or load an existing `coverage/lcov.info`.
-Covered and uncovered lines are striped into the editor gutter until you hide them again.
+Click any gutter arrow and pick **Run with Coverage** — the same menu holds Run and Debug — or use
+the **Run with Coverage** button beside Run and Debug.
 
-This is a manual, menu-driven check, not the IDE's native coverage integration: no Run-with-Coverage
-button on a test or file, and no Coverage tool window with per-file/function percentages. See
-[known issues](docs/known-issues.md#coverage-is-manual-not-ide-native) for what a native integration
-would need.
+<p align="center">
+  <img src="docs/screenshots/coverage-gutter-menu.png" alt="Gutter arrow menu offering Run, Debug and Run with Coverage" width="760">
+</p>
+
+The IDE handles the rest: covered and uncovered lines striped into the gutter, per-file and
+per-directory percentages in the Coverage tool window and the Project view, and
+**Run → Show Coverage Data** to switch between reports. Jest, Vitest and `node --test` need nothing
+installed beyond what they already use; Mocha needs `nyc` (`npm install --save-dev nyc`).
+
+<p align="center">
+  <img src="docs/screenshots/coverage.png" alt="Covered and uncovered lines striped in the editor gutter, with per-file percentages in the Coverage tool window and the Project view" width="760">
+</p>
+
+Two extras under **Tools → Node Coverage**, for what a single test configuration cannot say:
+**Run All Tests with Coverage** covers the whole project, and **Show Coverage from lcov.info** loads
+a report produced elsewhere — a CI run, say.
 
 ### `.env` files
 

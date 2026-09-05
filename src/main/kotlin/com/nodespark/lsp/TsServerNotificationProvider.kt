@@ -11,6 +11,7 @@ import com.intellij.ui.EditorNotifications
 import com.nodespark.notify.NodeModules
 import com.nodespark.notify.PackageInstall
 import com.nodespark.settings.NodeSparkSettings
+import com.nodespark.sdk.NodeProjectSdkService
 import com.nodespark.util.NodePackageManager
 import com.nodespark.util.NodeProjectUtil
 import com.nodespark.util.NodeTestDetector
@@ -45,7 +46,7 @@ class TsServerNotificationProvider : EditorNotificationProvider, DumbAware {
 
         val root = NodeProjectUtil.projectRootFor(project, file.path)
         if (root in dismissed) return null
-        val pm = NodePackageManager.detect(root)
+        val pm = NodeProjectSdkService.getInstance(project).packageManagerFor(root)
         return Function<FileEditor, JComponent> { _ ->
             EditorNotificationPanel(EditorNotificationPanel.Status.Info).apply {
                 text = "Code completion needs typescript-language-server in this project"
